@@ -1,6 +1,6 @@
 # 🎮 PLAYROOM
 
-Plateforme de mini-jeux en ligne. 11 jeux : 9 solo (Proximo, Réflexe, Mémoire, Nombre Mystère, Mot Mélangé, Quiz Éclair, Calcul Rapide, Frappe Rapide, Memory Grid) + 2 multijoueur temps réel (Imposteur, Draw & Guess). Chat de salon (anti-spam + désactivation par phase), comptes, XP, niveaux, titres, succès, classements (jour/semaine/général) et défi quotidien. Design premium : fond immersif animé, cartes à ambiance, transitions, confettis, podiums.
+Plateforme de mini-jeux en ligne. 12 jeux : 9 solo (Proximo, Réflexe, Mémoire, Nombre Mystère, Mot Mélangé, Quiz Éclair, Calcul Rapide, Frappe Rapide, Memory Grid) + 3 multijoueur temps réel (Imposteur avec choix du thème, Draw & Guess avec choix du mot + indices, Party : Tu préfères / Le plus susceptible / Hot Take). Chat de salon (anti-spam + désactivation par phase), comptes, XP, niveaux, titres, succès, classements et défi quotidien. Design premium : fond immersif animé, cartes à ambiance, transitions, confettis, podiums.
 
 ## Stack
 - **Front** : React 18 + Vite + Tailwind + React Router + lucide-react + socket.io-client

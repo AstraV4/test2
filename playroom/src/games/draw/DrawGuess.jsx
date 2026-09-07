@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Pencil, Eraser, Trash2, Palette, Crown, Trophy, Clock } from 'lucide-react';
-import { Avatar, Button, Tag } from '../../components/ui/index.jsx';
+import { Avatar, Button, Tag, Spinner } from '../../components/ui/index.jsx';
 import { useCountdown } from '../../lib/hooks.js';
 import { burstConfetti } from '../../components/PlayAgain.jsx';
 import { sound } from '../../lib/sound.js';
@@ -18,6 +18,8 @@ export default function DrawGuess({ socket, room, playerId, endsAt }) {
   const [tool, setTool] = useState('pen');
   const [word, setWord] = useState(null);      // mot complet (si dessinateur)
   const [wordLen, setWordLen] = useState(0);
+  const [choices, setChoices] = useState(null); // 3 mots proposés au dessinateur
+  const [hint, setHint] = useState('');         // motif d'indices ("_ a _ _")
   const [reveal, setReveal] = useState(null);  // { word, scores }
   const [over, setOver] = useState(null);       // { podium }
   const left = useCountdown(endsAt);
@@ -44,20 +46,26 @@ export default function DrawGuess({ socket, room, playerId, endsAt }) {
       ctx.beginPath(); ctx.moveTo(s.x0 * 800, s.y0 * 500); ctx.lineTo(s.x1 * 800, s.y1 * 500); ctx.stroke();
     };
     const clearCv = () => { const ctx = ctxRef.current; if (ctx) { ctx.fillStyle = '#0f131c'; ctx.fillRect(0, 0, 800, 500); } };
-    const onWord = (d) => { setWord(d.word); setWordLen(d.length); setReveal(null); setOver(null); clearCv(); if (d.isDrawer) sound.play('notify'); };
-    const onReveal = (d) => { setReveal(d); sound.play('ok'); };
+    const onWord = (d) => { setWord(d.word); setWordLen(d.length); setChoices(null); setReveal(null); setOver(null); setHint(''); clearCv(); if (d.isDrawer) sound.play('notify'); };
+    const onChoices = (d) => { setChoices(d.words); setReveal(null); setOver(null); };
+    const onHint = (d) => setHint(d.pattern || '');
+    const onReveal = (d) => { setReveal(d); setChoices(null); sound.play('ok'); };
     const onCorrect = () => sound.play('ok');
-    const onOver = (d) => { setOver(d); setReveal(null); burstConfetti(); sound.play('win'); };
-    const onToLobby = () => { setWord(null); setReveal(null); setOver(null); clearCv(); };
+    const onOver = (d) => { setOver(d); setReveal(null); setChoices(null); burstConfetti(); sound.play('win'); };
+    const onToLobby = () => { setWord(null); setReveal(null); setOver(null); setChoices(null); setHint(''); clearCv(); };
     socket.on('draw:stroke', drawSeg);
     socket.on('draw:clear', clearCv);
     socket.on('draw:word', onWord);
+    socket.on('draw:choices', onChoices);
+    socket.on('draw:hint', onHint);
     socket.on('draw:reveal', onReveal);
     socket.on('draw:correct', onCorrect);
     socket.on('draw:over', onOver);
     socket.on('game:toLobby', onToLobby);
+    socket.emit('game:sync'); // récupère mot/choix/indice courant (montage tardif + reconnexion)
     return () => {
       socket.off('draw:stroke', drawSeg); socket.off('draw:clear', clearCv); socket.off('draw:word', onWord);
+      socket.off('draw:choices', onChoices); socket.off('draw:hint', onHint);
       socket.off('draw:reveal', onReveal); socket.off('draw:correct', onCorrect); socket.off('draw:over', onOver); socket.off('game:toLobby', onToLobby);
     };
   }, [socket]);
@@ -120,6 +128,33 @@ export default function DrawGuess({ socket, room, playerId, endsAt }) {
 
   const maskedWord = Array.from({ length: wordLen }).map(() => '_').join(' ');
 
+  // Phase de choix du mot
+  if (phase === 'drawPick') {
+    if (isDrawer && choices) {
+      return (
+        <div className="text-center py-8 animate-fadeIn">
+          <Pencil className="h-9 w-9 mx-auto mb-3 text-brand" />
+          <h3 className="font-display font-bold text-xl mb-1">Choisis ton mot à dessiner</h3>
+          <p className="text-sm text-muted mb-6">Tu as 15 secondes pour choisir.</p>
+          <div className="flex flex-wrap gap-3 justify-center">
+            {choices.map((w, i) => (
+              <button key={i} onClick={() => { socket.emit('draw:pick', { index: i }); setChoices(null); }}
+                className="rounded-xl border border-border bg-surface-2 hover:border-brand hover:bg-brand/10 px-5 py-4 font-display font-bold text-lg transition-all">
+                {w}
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    const drawer = room.players.find(p => p.isDrawer);
+    return (
+      <div className="text-center py-16 animate-fadeIn">
+        <div className="inline-flex items-center gap-2 text-muted"><Spinner /> {drawer?.name || 'Le dessinateur'} choisit un mot…</div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
       {/* Barre d'état */}
@@ -130,7 +165,7 @@ export default function DrawGuess({ socket, room, playerId, endsAt }) {
           ) : reveal ? (
             <span>Le mot était <b className="text-success">{reveal.word}</b></span>
           ) : (
-            <span className="font-mono tracking-[0.3em] text-lg">{maskedWord}</span>
+            <span className="font-mono text-lg font-bold" style={{ letterSpacing: '0.35em' }}>{(hint || maskedWord).toUpperCase()}</span>
           )}
         </div>
         <div className="flex items-center gap-3">

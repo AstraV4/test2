@@ -1,4 +1,4 @@
-import { Zap, Brain, Hash, Shuffle, HelpCircle, Sparkles, Ghost, Calculator, Keyboard, Grid3x3, Palette } from 'lucide-react';
+import { Zap, Brain, Hash, Shuffle, HelpCircle, Sparkles, Ghost, Calculator, Keyboard, Grid3x3, Palette, PartyPopper } from 'lucide-react';
 
 // Métadonnées communes à tous les jeux. Ajouter un jeu = ajouter une entrée ici
 // + un composant dans src/games/<id>/. Le reste (fiche, routes, cartes) est générique.
@@ -90,6 +90,14 @@ export const GAMES = [
     description: "Chacun son tour, un joueur reçoit un mot et le dessine sur un canvas partagé. Les autres tapent leurs réponses dans le chat : plus tu devines vite, plus tu marques. Podium à la fin.",
     color: ['#22d3ee', '#a855f7'], ambiance: 'word', mode: 'multi', category: ['Entre amis', 'Multijoueur', 'Créatif'],
     players: '3-12', duration: '10-20 min', difficulty: 'Facile', avgScore: null, tags: ['Multijoueur', 'Entre amis', 'Créatif'],
+    featured: true, isNew: true,
+  },
+  {
+    id: 'party', slug: 'party', name: 'Party', icon: PartyPopper,
+    tagline: 'Tu préfères, Le plus susceptible, Hot Take… à voter à plusieurs.',
+    description: "Le mode idéal entre amis : on enchaîne des questions à voter (Tu préfères, Qui est le plus susceptible de…, Hot Take d'accord/pas d'accord). Résultats et statistiques du groupe en direct, points et podium final.",
+    color: ['#fb923c', '#ec4899'], ambiance: 'mystery', mode: 'multi', category: ['Entre amis', 'Multijoueur', 'Social'],
+    players: '3-12', duration: '10-15 min', difficulty: 'Facile', avgScore: null, tags: ['Multijoueur', 'Entre amis', 'Party'],
     featured: true, isNew: true,
   },
 ];

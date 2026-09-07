@@ -237,14 +237,17 @@ io.on('connection', (socket) => {
   socket.on('room:kick', (d) => rooms.kick(socket, d?.playerId));
   socket.on('room:leave', () => rooms.leaveRoom(socket));
   socket.on('game:start', () => rooms.startGame(socket));
+  socket.on('game:sync', () => rooms.syncPlayer(socket));
   socket.on('game:clue', (d) => rooms.submitClue(socket, d?.text));
   socket.on('game:skipVote', () => rooms.skipToVote(socket));
   socket.on('game:vote', (d) => rooms.castVote(socket, d?.targetId));
   socket.on('game:next', () => rooms.nextRound(socket));
   socket.on('game:lobby', () => rooms.backToLobby(socket));
   socket.on('chat:send', (d) => rooms.sendChat(socket, d?.text));
+  socket.on('draw:pick', (d) => rooms.pickDrawWord(socket, d?.index));
   socket.on('draw:stroke', (d) => rooms.relayStroke(socket, d));
   socket.on('draw:clear', () => rooms.clearCanvas(socket));
+  socket.on('party:vote', (d) => rooms.castPartyVote(socket, d?.choice));
   socket.on('disconnect', () => rooms.handleDisconnect(socket));
 });
 

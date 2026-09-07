@@ -85,16 +85,25 @@ export const ANAGRAM_WORDS = [
 ];
 
 /* ---------------- Mots / thèmes pour l'Imposteur ---------------- */
-export const IMPOSTER_WORDS = [
-  { theme: 'Fruits', word: 'Banane' }, { theme: 'Fruits', word: 'Fraise' },
-  { theme: 'Animaux', word: 'Éléphant' }, { theme: 'Animaux', word: 'Pingouin' },
-  { theme: 'Lieux', word: 'Plage' }, { theme: 'Lieux', word: 'Bibliothèque' },
-  { theme: 'Objets', word: 'Parapluie' }, { theme: 'Objets', word: 'Horloge' },
-  { theme: 'Sports', word: 'Basketball' }, { theme: 'Sports', word: 'Natation' },
-  { theme: 'Nourriture', word: 'Pizza' }, { theme: 'Nourriture', word: 'Sushi' },
-  { theme: 'Métiers', word: 'Pompier' }, { theme: 'Métiers', word: 'Astronaute' },
-  { theme: 'Nature', word: 'Volcan' }, { theme: 'Nature', word: 'Cascade' },
-];
+// Regroupés par thème pour permettre au salon de choisir un thème précis.
+export const IMPOSTER_THEMES = {
+  'Animaux': ['Éléphant', 'Pingouin', 'Girafe', 'Dauphin', 'Kangourou', 'Hérisson', 'Panda', 'Crocodile'],
+  'Nourriture': ['Pizza', 'Sushi', 'Croissant', 'Hamburger', 'Raclette', 'Tacos', 'Crêpe', 'Lasagnes'],
+  'Lieux': ['Plage', 'Bibliothèque', 'Aéroport', 'Montagne', 'Musée', 'Marché', 'Stade', 'Château'],
+  'Objets': ['Parapluie', 'Horloge', 'Aspirateur', 'Boussole', 'Lampe', 'Ciseaux', 'Valise', 'Télescope'],
+  'Sports': ['Basketball', 'Natation', 'Escalade', 'Tennis', 'Ski', 'Boxe', 'Surf', 'Judo'],
+  'Métiers': ['Pompier', 'Astronaute', 'Cuisinier', 'Vétérinaire', 'Architecte', 'Jardinier', 'Pilote', 'Magicien'],
+  'Nature': ['Volcan', 'Cascade', 'Arc-en-ciel', 'Forêt', 'Désert', 'Glacier', 'Tempête', 'Rivière'],
+  'Films & séries': ['Titanic', 'Star Wars', 'Harry Potter', 'Le Roi Lion', 'Jurassic Park', 'Avatar', 'Batman', 'Shrek'],
+};
+export const IMPOSTER_THEME_LIST = Object.keys(IMPOSTER_THEMES);
+
+// Choisit { theme, word } — thème imposé si fourni et valide, sinon aléatoire.
+export function pickImposterWord(theme) {
+  const t = IMPOSTER_THEMES[theme] ? theme : IMPOSTER_THEME_LIST[Math.floor(Math.random() * IMPOSTER_THEME_LIST.length)];
+  const words = IMPOSTER_THEMES[t];
+  return { theme: t, word: words[Math.floor(Math.random() * words.length)] };
+}
 
 /* ---------------- Mots à dessiner (Draw & Guess) ---------------- */
 // Mots simples et concrets, faciles à dessiner et à deviner.
@@ -105,3 +114,86 @@ export const DRAW_WORDS = [
   'papillon', 'échelle', 'ananas', 'fantôme', 'dinosaure', 'crayon', 'nuage', 'éclair',
   'serpent', 'tortue', 'avion', 'vélo', 'gâteau', 'couronne', 'ancre', 'clé de sol',
 ];
+
+/* ---------------- Mode Party (jeux à voter) ---------------- */
+// Trois formats : 'wyr' (Tu préfères), 'most' (Le plus susceptible de), 'hot' (Hot take).
+// Contenu adapté à une bande d'amis / ambiance cours de récré.
+export const PARTY_WYR = [
+  ['Pouvoir voler', 'Être invisible'],
+  ['Ne plus jamais avoir de devoirs', 'Avoir toujours 20/20 sans réviser'],
+  ['Vivre sans musique', 'Vivre sans jeux vidéo'],
+  ['Pouvoir parler toutes les langues', 'Pouvoir parler aux animaux'],
+  ['Avoir un self illimité gratuit', 'Ne plus jamais être en retard'],
+  ['Être le plus drôle de la classe', 'Être le plus intelligent'],
+  ['Ne plus jamais avoir de bugs', 'Avoir le wifi gratuit partout à vie'],
+  ['Pouvoir arrêter le temps', 'Pouvoir revenir dans le passé'],
+  ['Manger que du sucré à vie', 'Manger que du salé à vie'],
+  ['Être célèbre sur internet', 'Être riche mais inconnu'],
+  ['Avoir des vacances toute l\u2019année', 'Ne jamais tomber malade'],
+  ['Lire dans les pensées', 'Voir le futur'],
+  ['Ne plus jamais dormir (sans être fatigué)', 'Dormir autant que tu veux'],
+  ['Être champion de sport', 'Être une star de la musique'],
+  ['Pouvoir te téléporter', 'Avoir une voiture qui vole'],
+  ['Perdre tous tes messages', 'Perdre toutes tes photos'],
+  ['Rire à chaque fois que tu mens', 'Dire toujours la vérité'],
+  ['Avoir un pouvoir mais ridicule', 'N\u2019avoir aucun pouvoir'],
+  ['Être prof pour un jour', 'Être directeur pour un jour'],
+  ['Ne plus jamais utiliser ton tel', 'Ne plus jamais regarder la télé'],
+];
+export const PARTY_MOST = [
+  'arriver en retard en cours',
+  'oublier ses devoirs',
+  'devenir célèbre un jour',
+  'rire pendant un moment sérieux',
+  'oublier l\u2019anniversaire d\u2019un ami',
+  'survivre à une apocalypse zombie',
+  'devenir millionnaire',
+  's\u2019endormir en cours',
+  'faire une blague au mauvais moment',
+  'partir vivre à l\u2019étranger',
+  'répondre au prof sans lever la main',
+  'oublier son code / mot de passe',
+  'gagner à un jeu télévisé',
+  'se perdre dans une nouvelle ville',
+  'devenir youtubeur / streameur',
+  'craquer et manger tout le paquet de gâteaux',
+  'dire une bêtise en présentation',
+  'aider un ami à 3h du matin',
+  'devenir le boss d\u2019une grande entreprise',
+  'oublier où il a mis ses affaires',
+];
+export const PARTY_HOT = [
+  'L\u2019ananas a sa place sur une pizza.',
+  'Les maths sont plus utiles que l\u2019histoire.',
+  'Il vaut mieux être en avance qu\u2019en retard, toujours.',
+  'Les films sont meilleurs que les livres.',
+  'Le petit-déjeuner est le meilleur repas de la journée.',
+  'Les chats sont mieux que les chiens.',
+  'Réviser la veille, ça marche très bien.',
+  'Le sucré est meilleur que le salé.',
+  'Les vacances d\u2019été sont trop longues.',
+  'Écouter de la musique aide à mieux travailler.',
+  'Les emojis rendent les messages plus clairs.',
+  'On devrait pouvoir choisir toutes ses matières.',
+  'Le lundi n\u2019est pas si terrible que ça.',
+  'Un bon meme vaut mille mots.',
+  'Les jeux vidéo sont un vrai sport.',
+  'Il faut toujours finir ce qu\u2019on commence.',
+  'Le téléphone devrait être autorisé en cours.',
+  'La pizza froide du matin, c\u2019est excellent.',
+  'Mieux vaut trop dormir que pas assez.',
+  'Les séries valent mieux que les films.',
+];
+
+// Construit une manche party. players: [{id,name,avatar}] (pour 'most').
+export function buildPartyRound(format, usedIdx, players) {
+  const pool = format === 'wyr' ? PARTY_WYR : format === 'most' ? PARTY_MOST : PARTY_HOT;
+  // choisir un index non utilisé si possible
+  let idx = Math.floor(Math.random() * pool.length);
+  for (let i = 0; i < pool.length && usedIdx.has(format + ':' + idx); i++) idx = (idx + 1) % pool.length;
+  usedIdx.add(format + ':' + idx);
+  if (format === 'wyr') return { format, prompt: 'Tu préfères…', options: pool[idx] };
+  if (format === 'hot') return { format, prompt: pool[idx], options: ['D\u2019accord', 'Pas d\u2019accord'] };
+  // most : options = joueurs
+  return { format, prompt: 'Qui est le plus susceptible de ' + pool[idx] + ' ?', options: players.map(p => ({ id: p.id, name: p.name, avatar: p.avatar })) };
+}

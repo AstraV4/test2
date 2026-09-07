@@ -30,6 +30,7 @@ export default function Imposter({ socket, room, playerId, endsAt }) {
     socket.on('game:clueTurn', onClueTurn);
     socket.on('game:result', onResult);
     socket.on('game:toLobby', onToLobby);
+    socket.emit('game:sync'); // récupère le rôle/mot courant même si on s'abonne tard
     return () => { socket.off('game:role', onRole); socket.off('game:clue', onClue); socket.off('game:clueTurn', onClueTurn); socket.off('game:result', onResult); socket.off('game:toLobby', onToLobby); };
   }, [socket]);
 

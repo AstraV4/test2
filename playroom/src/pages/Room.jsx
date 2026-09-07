@@ -6,6 +6,7 @@ import { Card, Button, Avatar, Tag, Spinner } from '../components/ui/index.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import Imposter from '../games/imposter/Imposter.jsx';
 import DrawGuess from '../games/draw/DrawGuess.jsx';
+import Party from '../games/party/Party.jsx';
 import Chat from '../components/Chat.jsx';
 import { sound } from '../lib/sound.js';
 
@@ -97,6 +98,8 @@ export default function Room() {
           <h2 className="font-semibold">Joueurs <span className="text-muted">({room.players.length}/12)</span></h2>
           {room.phase !== 'lobby' && (room.gameType === 'draw'
             ? (room.draw && <Tag color="warning">Tour {room.draw.turn}/{room.draw.totalTurns}</Tag>)
+            : room.gameType === 'party'
+            ? (room.party && <Tag color="warning">Manche {room.party.turn}/{room.party.total}</Tag>)
             : <Tag color="warning">Manche {room.round}/{room.settings.rounds}</Tag>)}
         </div>
         <div className="grid sm:grid-cols-2 gap-2">
@@ -127,6 +130,13 @@ export default function Room() {
           </Card>
           <Chat socket={getSocket()} room={room} playerId={playerId} />
         </div>
+      ) : room.gameType === 'party' ? (
+        <div className="grid lg:grid-cols-3 gap-4">
+          <Card className="p-5 lg:col-span-2">
+            <Party socket={getSocket()} room={room} playerId={playerId} endsAt={endsAt} />
+          </Card>
+          <Chat socket={getSocket()} room={room} playerId={playerId} />
+        </div>
       ) : (
         <div className="grid lg:grid-cols-3 gap-4">
           <Card className="p-5 lg:col-span-2">
@@ -145,14 +155,15 @@ function LobbyControls({ room, me, isHost }) {
   const canStart = room.players.length >= 3;
   const maxImp = Math.max(1, Math.floor(room.players.length / 3));
   const isDraw = room.gameType === 'draw';
+  const isParty = room.gameType === 'party';
 
   return (
     <Card className="p-5 space-y-4">
       {/* Choix du jeu */}
       <div>
         <h3 className="font-semibold mb-2 text-sm text-muted">Jeu</h3>
-        <div className="grid grid-cols-2 gap-2">
-          {[{ id: 'imposter', emo: '🕵️', name: 'Imposteur', sub: 'Déduction' }, { id: 'draw', emo: '🎨', name: 'Draw & Guess', sub: 'Dessin' }].map(g => (
+        <div className="grid grid-cols-3 gap-2">
+          {[{ id: 'imposter', emo: '🕵️', name: 'Imposteur', sub: 'Déduction' }, { id: 'draw', emo: '🎨', name: 'Draw & Guess', sub: 'Dessin' }, { id: 'party', emo: '🎉', name: 'Party', sub: 'À voter' }].map(g => (
             <button key={g.id} disabled={!isHost} onClick={() => socket.emit('room:setGame', { gameType: g.id })}
               className={`rounded-xl border p-3 text-left transition-all ${room.gameType === g.id ? 'border-brand bg-brand/10' : 'border-border bg-surface-2 hover:border-brand/40'} ${!isHost ? 'opacity-70 cursor-default' : ''}`}>
               <div className="text-xl">{g.emo}</div>
@@ -180,8 +191,22 @@ function LobbyControls({ room, me, isHost }) {
                 </select>
               </Setting>
             </div>
+          ) : isParty ? (
+            <div className="grid grid-cols-2 gap-3">
+              <Setting label="Nombre de manches">
+                <select value={s.partyRounds} onChange={e => socket.emit('room:settings', { partyRounds: +e.target.value })} className="w-full rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm">
+                  {[6, 8, 10, 12, 15].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </Setting>
+              <div className="flex items-end"><p className="text-xs text-muted">Tu préfères · Le plus susceptible · Hot Take s'enchaînent automatiquement.</p></div>
+            </div>
           ) : (
             <div className="grid grid-cols-3 gap-3">
+              <Setting label="Thème">
+                <select value={s.theme} onChange={e => socket.emit('room:settings', { theme: e.target.value })} className="w-full rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm">
+                  {(room.themes || ['Aléatoire']).map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </Setting>
               <Setting label="Imposteurs">
                 <select value={s.imposters} onChange={e => socket.emit('room:settings', { imposters: +e.target.value })} className="w-full rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm">
                   {Array.from({ length: maxImp }).map((_, i) => <option key={i} value={i + 1}>{i + 1}</option>)}
