@@ -9,6 +9,16 @@ import { gameById } from '../games/registry.js';
 
 const ALL_ACH = Object.keys(ACH_LABELS);
 
+// Titre de joueur en fonction du niveau (cosmétique).
+function playerTitle(level) {
+  if (level >= 30) return '👑 Légende';
+  if (level >= 20) return '💎 Maître';
+  if (level >= 12) return '🔥 Vétéran';
+  if (level >= 6) return '⚡ Confirmé';
+  if (level >= 3) return '🌟 Apprenti';
+  return '🎮 Débutant';
+}
+
 export default function Profile() {
   const { user, logout, setAvatar, openAuth } = useAuth();
   const [data, setData] = useState(null);
@@ -41,7 +51,7 @@ export default function Profile() {
               <h1 className="font-display font-bold text-2xl">{user.username}</h1>
               <Tag color="brand">Niveau {lv.level}</Tag>
             </div>
-            <p className="text-sm text-muted mt-0.5">{user.xp} XP au total</p>
+            <p className="text-sm mt-0.5"><span className="text-brand font-semibold">{playerTitle(lv.level)}</span> <span className="text-muted">· {user.xp} XP au total</span></p>
             <div className="mt-3 max-w-sm">
               <div className="flex justify-between text-xs text-muted mb-1"><span>Niveau {lv.level}</span><span>{lv.into}/{lv.need} XP</span></div>
               <Progress value={pct} />

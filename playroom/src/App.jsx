@@ -1,6 +1,7 @@
 import React from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import Header from './components/layout/Header.jsx';
+import Background from './components/layout/Background.jsx';
 import AuthModal from './components/AuthModal.jsx';
 import { Button } from './components/ui/index.jsx';
 
@@ -11,18 +12,21 @@ import Profile from './pages/Profile.jsx';
 import Leaderboards from './pages/Leaderboards.jsx';
 import Multiplayer from './pages/Multiplayer.jsx';
 import Room from './pages/Room.jsx';
+import Daily from './pages/Daily.jsx';
 
 export default function App() {
   const loc = useLocation();
   // Le salon prend tout l'écran (pas de footer encombrant)
   return (
     <div className="app-bg min-h-screen flex flex-col">
+      <Background />
       <Header />
-      <main className="flex-1 mx-auto w-full max-w-6xl px-4">
-        <Routes>
+      <main key={loc.pathname} className="flex-1 mx-auto w-full max-w-6xl px-4 page-enter">
+        <Routes location={loc}>
           <Route path="/" element={<Home />} />
           <Route path="/jeux" element={<Games />} />
           <Route path="/jeux/:slug" element={<GameDetail />} />
+          <Route path="/defi" element={<Daily />} />
           <Route path="/multijoueur" element={<Multiplayer />} />
           <Route path="/salon/:code" element={<Room />} />
           <Route path="/classements" element={<Leaderboards />} />

@@ -5,9 +5,12 @@ import { useToast } from '../context/ToastContext.jsx';
 import { sound } from './sound.js';
 
 const ACH_LABELS = {
-  first_game: '🎮 Première partie', first_win: '🏆 Première victoire', addict: '🔥 Accro (25 parties)',
+  first_game: '🎮 Première partie', first_win: '🏆 Première victoire',
+  ten_games: '🎯 10 parties', addict: '🔥 Accro (25 parties)', century: '💯 100 parties',
+  ten_wins: '🥇 10 victoires',
   fast_reflex: '⚡ Réflexe éclair', memory_master: '🧠 Maître de la mémoire',
   quiz_genius: '💡 Génie du quiz', word_hunter: '🕵️ Chasseur de mots',
+  math_wizard: '🔢 Sorcier du calcul', speed_typist: '⌨️ Doigts de fée', grid_master: '🟪 Maître de la grille',
 };
 
 // Soumet un score au serveur et gère XP / record / succès / niveau.

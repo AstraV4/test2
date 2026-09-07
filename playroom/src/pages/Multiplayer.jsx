@@ -36,7 +36,7 @@ export default function Multiplayer() {
       <div className="text-center">
         <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-brand-2 text-white mb-3"><Users2 className="h-7 w-7" /></div>
         <h1 className="font-display font-bold text-3xl">Jouer entre amis</h1>
-        <p className="text-muted mt-1">Crée un salon ou rejoins-en un avec un code. Jeu du moment : <b className="text-text">Imposteur</b>.</p>
+        <p className="text-muted mt-1">Crée un salon ou rejoins-en un avec un code. Choisis ensuite <b className="text-text">Imposteur</b> ou <b className="text-text">Draw & Guess</b> dans le salon.</p>
       </div>
 
       <Card className="p-6 space-y-5">

@@ -12,8 +12,11 @@ import NumberGuess from '../games/number/NumberGuess.jsx';
 import Anagram from '../games/anagram/Anagram.jsx';
 import Quiz from '../games/quiz/Quiz.jsx';
 import Semantic from '../games/semantic/Semantic.jsx';
+import MathRush from '../games/mathrush/MathRush.jsx';
+import TypeRush from '../games/typerush/TypeRush.jsx';
+import MemGrid from '../games/memgrid/MemGrid.jsx';
 
-const SOLO = { reaction: Reaction, memory: Memory, number: NumberGuess, anagram: Anagram, quiz: Quiz, semantic: Semantic };
+const SOLO = { reaction: Reaction, memory: Memory, number: NumberGuess, anagram: Anagram, quiz: Quiz, semantic: Semantic, mathrush: MathRush, typerush: TypeRush, memgrid: MemGrid };
 
 export default function GameDetail() {
   const { slug } = useParams();

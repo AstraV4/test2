@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Gamepad2, Home, Grid3x3, Users2, Trophy, Search, Sun, Moon, Volume2, VolumeX, Menu, X, LogOut, User as UserIcon } from 'lucide-react';
+import { Gamepad2, Home, Grid3x3, Users2, Trophy, Search, Sun, Moon, Volume2, VolumeX, Menu, X, LogOut, User as UserIcon, Flame } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useTheme } from '../../context/ThemeContext.jsx';
 import { Avatar, Button } from '../ui/index.jsx';
@@ -9,6 +9,7 @@ import { sound } from '../../lib/sound.js';
 const NAV = [
   { to: '/', label: 'Accueil', icon: Home, end: true },
   { to: '/jeux', label: 'Jeux', icon: Grid3x3 },
+  { to: '/defi', label: 'Défi du jour', icon: Flame },
   { to: '/multijoueur', label: 'Multijoueur', icon: Users2 },
   { to: '/classements', label: 'Classements', icon: Trophy },
 ];

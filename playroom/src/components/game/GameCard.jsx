@@ -1,31 +1,67 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Clock, Gauge, Play } from 'lucide-react';
-import { Card, Tag } from '../ui/index.jsx';
+import { Users, Clock, Gauge, Play, BarChart3 } from 'lucide-react';
+import { Tag } from '../ui/index.jsx';
+
+// Décor d'ambiance propre à chaque jeu (rendu léger en SVG/CSS).
+function Ambiance({ ambiance, a, b }) {
+  const common = 'absolute inset-0 overflow-hidden';
+  if (ambiance === 'space') return (
+    <div className={common}>
+      {[...Array(14)].map((_, i) => <span key={i} className="absolute rounded-full bg-white animate-floaty" style={{ width: 2, height: 2, top: `${(i * 37) % 100}%`, left: `${(i * 53) % 100}%`, opacity: 0.5, animationDelay: `${i * 0.3}s` }} />)}
+    </div>
+  );
+  if (ambiance === 'speed') return (
+    <div className={common}>
+      {[...Array(6)].map((_, i) => <span key={i} className="absolute h-0.5 rounded-full" style={{ width: `${30 + i * 8}%`, top: `${18 + i * 12}%`, left: 0, background: `linear-gradient(90deg, transparent, ${a})`, opacity: 0.5 }} />)}
+    </div>
+  );
+  if (ambiance === 'word' || ambiance === 'type') return (
+    <div className={`${common} font-display font-bold text-white/10 leading-none`}>
+      <span className="absolute text-6xl" style={{ top: '10%', left: '6%' }}>Aa</span>
+      <span className="absolute text-4xl" style={{ top: '52%', left: '58%' }}>{ambiance === 'type' ? '⌨' : 'Zz'}</span>
+    </div>
+  );
+  if (ambiance === 'mystery') return (
+    <div className={common}><div className="absolute inset-0" style={{ background: `radial-gradient(8rem 8rem at 70% 30%, ${a}44, transparent 70%)` }} /><span className="absolute text-5xl" style={{ top: '30%', left: '60%', opacity: 0.15 }}>👁️</span></div>
+  );
+  if (ambiance === 'grid') return (
+    <div className={common}>
+      <div className="absolute inset-0 opacity-20" style={{ backgroundImage: `linear-gradient(${a}55 1px, transparent 1px), linear-gradient(90deg, ${a}55 1px, transparent 1px)`, backgroundSize: '22px 22px' }} />
+    </div>
+  );
+  if (ambiance === 'number') return (
+    <div className={`${common} font-mono font-bold text-white/10`}>
+      {['7', '3', '×', '9', '+', '5'].map((n, i) => <span key={i} className="absolute text-3xl" style={{ top: `${(i * 29) % 80}%`, left: `${(i * 41) % 85}%` }}>{n}</span>)}
+    </div>
+  );
+  return <div className={common}><div className="absolute inset-0" style={{ background: `radial-gradient(10rem 8rem at 30% 20%, ${a}33, transparent 70%)` }} /></div>;
+}
 
 export default function GameCard({ game }) {
   const Icon = game.icon;
   const [a, b] = game.color;
   return (
-    <Card hover className="group overflow-hidden flex flex-col">
+    <div className="card-glow rounded-2xl overflow-hidden flex flex-col h-full group">
       <Link to={`/jeux/${game.slug}`} className="block">
-        <div className="relative h-28 overflow-hidden" style={{ background: `linear-gradient(135deg, ${a}22, ${b}22)` }}>
-          <div className="absolute inset-0 opacity-30" style={{ background: `radial-gradient(20rem 10rem at 20% 0%, ${a}, transparent 60%)` }} />
-          <div className="absolute -right-3 -bottom-3 opacity-20 group-hover:opacity-30 transition-opacity">
-            <Icon className="h-24 w-24" style={{ color: a }} strokeWidth={1.25} />
+        <div className="relative h-32 overflow-hidden" style={{ background: `linear-gradient(135deg, ${a}26, ${b}1a)` }}>
+          <Ambiance ambiance={game.ambiance} a={a} b={b} />
+          <div className="absolute -right-3 -bottom-3 opacity-20 group-hover:opacity-30 group-hover:scale-110 transition-all duration-500">
+            <Icon className="h-24 w-24" style={{ color: a }} strokeWidth={1.1} />
           </div>
           <div className="absolute top-3 left-3 flex gap-2">
             {game.isNew && <Tag color="accent">Nouveau</Tag>}
-            <Tag color={game.mode === 'multi' ? 'warning' : 'brand'}>{game.mode === 'multi' ? 'Multijoueur' : 'Solo'}</Tag>
+            <Tag color={game.mode === 'multi' ? 'warning' : 'brand'}>{game.mode === 'multi' ? 'Multi' : 'Solo'}</Tag>
           </div>
-          <div className="absolute bottom-3 left-3 flex h-11 w-11 items-center justify-center rounded-xl text-white shadow-lg" style={{ background: `linear-gradient(135deg, ${a}, ${b})` }}>
-            <Icon className="h-5 w-5" />
+          <div className="absolute bottom-3 left-3 flex h-12 w-12 items-center justify-center rounded-xl text-white shadow-lg group-hover:scale-110 transition-transform" style={{ background: `linear-gradient(135deg, ${a}, ${b})` }}>
+            <Icon className="h-6 w-6" />
           </div>
         </div>
       </Link>
       <div className="p-4 flex flex-col flex-1">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <Link to={`/jeux/${game.slug}`} className="font-display font-bold text-text hover:text-brand transition-colors">{game.name}</Link>
+          {game.avgScore != null && <span className="inline-flex items-center gap-1 text-[11px] text-muted"><BarChart3 className="h-3 w-3" /> {game.avgScore}</span>}
         </div>
         <p className="text-sm text-muted mt-1 line-clamp-2 flex-1">{game.tagline}</p>
         <div className="flex items-center gap-3 text-[11px] text-muted mt-3">
@@ -37,6 +73,20 @@ export default function GameCard({ game }) {
           <Play className="h-4 w-4" /> Jouer
         </Link>
       </div>
-    </Card>
+    </div>
+  );
+}
+
+export function GameCardSkeleton() {
+  return (
+    <div className="card rounded-2xl overflow-hidden">
+      <div className="skeleton h-32 rounded-none" />
+      <div className="p-4 space-y-2">
+        <div className="skeleton h-4 w-1/2" />
+        <div className="skeleton h-3 w-full" />
+        <div className="skeleton h-3 w-2/3" />
+        <div className="skeleton h-9 w-full mt-3" />
+      </div>
+    </div>
   );
 }

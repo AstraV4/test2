@@ -90,17 +90,23 @@ app.get('/api/me/profile', requireAuth, (req, res) => {
 });
 
 /* ============================ SCORES / XP ============================ */
-const XP_TABLE = { reaction: 12, memory: 15, number: 10, anagram: 14, quiz: 16, semantic: 20 };
+const XP_TABLE = { reaction: 12, memory: 15, number: 10, anagram: 14, quiz: 16, semantic: 20, mathrush: 14, typerush: 15, memgrid: 15 };
 function checkAchievements(userId, game, score, stats) {
   const granted = [];
   const g = (code) => { if (grantAchievement(userId, code)) granted.push(code); };
   if (stats.played === 1) g('first_game');
   if (stats.wins >= 1) g('first_win');
+  if (stats.played >= 10) g('ten_games');
   if (stats.played >= 25) g('addict');
-  if (game === 'reaction' && score >= 700) g('fast_reflex');   // score = 1000 - ms/... plus haut = mieux
+  if (stats.played >= 100) g('century');
+  if (stats.wins >= 10) g('ten_wins');
+  if (game === 'reaction' && score >= 700) g('fast_reflex');
   if (game === 'memory' && score >= 12) g('memory_master');
   if (game === 'quiz' && score >= 18) g('quiz_genius');
   if (game === 'semantic' && score >= 100) g('word_hunter');
+  if (game === 'mathrush' && score >= 25) g('math_wizard');
+  if (game === 'typerush' && score >= 60) g('speed_typist');
+  if (game === 'memgrid' && score >= 10) g('grid_master');
   return granted;
 }
 
@@ -136,6 +142,23 @@ app.get('/api/leaderboard', (req, res) => {
   const uid = userIdFromReq(req);
   if (uid) { const found = rows.find(r => r.userId === uid); if (found) me = found; }
   res.json({ game, period, rows, me });
+});
+
+/* ============================ DÉFI DU JOUR ============================ */
+// Un jeu solo est désigné chaque jour de façon déterministe (même pour tous).
+// Le classement du jour réutilise l'infra existante (period='day').
+const DAILY_POOL = ['reaction', 'memory', 'number', 'anagram', 'quiz', 'mathrush', 'typerush', 'memgrid'];
+function dailyGame(dayStr) {
+  let h = 0; for (const c of dayStr) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return DAILY_POOL[h % DAILY_POOL.length];
+}
+app.get('/api/daily', (req, res) => {
+  const day = new Date().toISOString().slice(0, 10);
+  const game = dailyGame(day);
+  const rows = leaderboard(game, 'day', 20);
+  let me = null; const uid = userIdFromReq(req);
+  if (uid) { const found = rows.find(r => r.userId === uid); if (found) me = found; }
+  res.json({ day, game, rows, me });
 });
 
 /* ============================ JEU SÉMANTIQUE ============================ */
@@ -210,6 +233,7 @@ io.on('connection', (socket) => {
   socket.on('room:join', (d) => rooms.joinRoom(socket, d || {}));
   socket.on('room:ready', (d) => rooms.setReady(socket, d?.ready));
   socket.on('room:settings', (d) => rooms.updateSettings(socket, d || {}));
+  socket.on('room:setGame', (d) => rooms.setGameType(socket, d?.gameType));
   socket.on('room:kick', (d) => rooms.kick(socket, d?.playerId));
   socket.on('room:leave', () => rooms.leaveRoom(socket));
   socket.on('game:start', () => rooms.startGame(socket));
@@ -218,6 +242,9 @@ io.on('connection', (socket) => {
   socket.on('game:vote', (d) => rooms.castVote(socket, d?.targetId));
   socket.on('game:next', () => rooms.nextRound(socket));
   socket.on('game:lobby', () => rooms.backToLobby(socket));
+  socket.on('chat:send', (d) => rooms.sendChat(socket, d?.text));
+  socket.on('draw:stroke', (d) => rooms.relayStroke(socket, d));
+  socket.on('draw:clear', () => rooms.clearCanvas(socket));
   socket.on('disconnect', () => rooms.handleDisconnect(socket));
 });
 

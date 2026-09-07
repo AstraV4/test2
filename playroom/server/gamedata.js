@@ -95,3 +95,13 @@ export const IMPOSTER_WORDS = [
   { theme: 'Métiers', word: 'Pompier' }, { theme: 'Métiers', word: 'Astronaute' },
   { theme: 'Nature', word: 'Volcan' }, { theme: 'Nature', word: 'Cascade' },
 ];
+
+/* ---------------- Mots à dessiner (Draw & Guess) ---------------- */
+// Mots simples et concrets, faciles à dessiner et à deviner.
+export const DRAW_WORDS = [
+  'chat', 'maison', 'soleil', 'arbre', 'voiture', 'fleur', 'poisson', 'étoile',
+  'bateau', 'montagne', 'pomme', 'clé', 'parapluie', 'lune', 'guitare', 'robot',
+  'fusée', 'château', 'pizza', 'ballon', 'chapeau', 'lunettes', 'horloge', 'cactus',
+  'papillon', 'échelle', 'ananas', 'fantôme', 'dinosaure', 'crayon', 'nuage', 'éclair',
+  'serpent', 'tortue', 'avion', 'vélo', 'gâteau', 'couronne', 'ancre', 'clé de sol',
+];

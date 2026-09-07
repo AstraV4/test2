@@ -4,6 +4,7 @@ import { Button, Spinner } from '../../components/ui/index.jsx';
 import { api } from '../../lib/api.js';
 import { useSubmitScore } from '../../lib/hooks.js';
 import { useToast } from '../../context/ToastContext.jsx';
+import { burstConfetti } from '../../components/PlayAgain.jsx';
 import { sound } from '../../lib/sound.js';
 
 // Couleur de la jauge selon la proximité.
@@ -41,7 +42,7 @@ export default function Semantic() {
       setBest(b => Math.max(b, r.score));
       setValue('');
       if (r.win) {
-        setWon(true); sound.play('win');
+        setWon(true); sound.play('win'); burstConfetti();
         if (!submitted.current) { submitted.current = true; await submit('semantic', 100, { won: true, meta: { tries: guesses.length + 1 } }); }
       } else sound.play(r.score >= 60 ? 'ok' : 'tick');
     } catch { toast.error('Erreur, réessaie.'); } finally { setBusy(false); }

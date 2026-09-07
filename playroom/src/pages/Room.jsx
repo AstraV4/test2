@@ -5,6 +5,8 @@ import { getSocket } from '../lib/socket.js';
 import { Card, Button, Avatar, Tag, Spinner } from '../components/ui/index.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import Imposter from '../games/imposter/Imposter.jsx';
+import DrawGuess from '../games/draw/DrawGuess.jsx';
+import Chat from '../components/Chat.jsx';
 import { sound } from '../lib/sound.js';
 
 export default function Room() {
@@ -93,7 +95,9 @@ export default function Room() {
       <Card className="p-5">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-semibold">Joueurs <span className="text-muted">({room.players.length}/12)</span></h2>
-          {room.phase !== 'lobby' && <Tag color="warning">Manche {room.round}/{room.settings.rounds}</Tag>}
+          {room.phase !== 'lobby' && (room.gameType === 'draw'
+            ? (room.draw && <Tag color="warning">Tour {room.draw.turn}/{room.draw.totalTurns}</Tag>)
+            : <Tag color="warning">Manche {room.round}/{room.settings.rounds}</Tag>)}
         </div>
         <div className="grid sm:grid-cols-2 gap-2">
           {room.players.map(p => (
@@ -112,11 +116,24 @@ export default function Room() {
 
       {/* Contenu selon phase */}
       {inLobby ? (
-        <LobbyControls room={room} me={me} isHost={isHost} />
+        <>
+          <LobbyControls room={room} me={me} isHost={isHost} />
+          <Chat socket={getSocket()} room={room} playerId={playerId} compact />
+        </>
+      ) : room.gameType === 'draw' ? (
+        <div className="grid lg:grid-cols-3 gap-4">
+          <Card className="p-4 lg:col-span-2">
+            <DrawGuess socket={getSocket()} room={room} playerId={playerId} endsAt={endsAt} />
+          </Card>
+          <Chat socket={getSocket()} room={room} playerId={playerId} />
+        </div>
       ) : (
-        <Card className="p-5">
-          <Imposter socket={getSocket()} room={room} playerId={playerId} endsAt={endsAt} />
-        </Card>
+        <div className="grid lg:grid-cols-3 gap-4">
+          <Card className="p-5 lg:col-span-2">
+            <Imposter socket={getSocket()} room={room} playerId={playerId} endsAt={endsAt} />
+          </Card>
+          <Chat socket={getSocket()} room={room} playerId={playerId} />
+        </div>
       )}
     </div>
   );
@@ -127,29 +144,61 @@ function LobbyControls({ room, me, isHost }) {
   const s = room.settings;
   const canStart = room.players.length >= 3;
   const maxImp = Math.max(1, Math.floor(room.players.length / 3));
+  const isDraw = room.gameType === 'draw';
 
   return (
     <Card className="p-5 space-y-4">
+      {/* Choix du jeu */}
+      <div>
+        <h3 className="font-semibold mb-2 text-sm text-muted">Jeu</h3>
+        <div className="grid grid-cols-2 gap-2">
+          {[{ id: 'imposter', emo: '🕵️', name: 'Imposteur', sub: 'Déduction' }, { id: 'draw', emo: '🎨', name: 'Draw & Guess', sub: 'Dessin' }].map(g => (
+            <button key={g.id} disabled={!isHost} onClick={() => socket.emit('room:setGame', { gameType: g.id })}
+              className={`rounded-xl border p-3 text-left transition-all ${room.gameType === g.id ? 'border-brand bg-brand/10' : 'border-border bg-surface-2 hover:border-brand/40'} ${!isHost ? 'opacity-70 cursor-default' : ''}`}>
+              <div className="text-xl">{g.emo}</div>
+              <div className="font-semibold text-sm mt-1">{g.name}</div>
+              <div className="text-xs text-muted">{g.sub}</div>
+            </button>
+          ))}
+        </div>
+        {!isHost && <p className="text-[11px] text-muted mt-1">Seul l'hôte peut choisir le jeu.</p>}
+      </div>
+
       {isHost && (
         <div>
-          <h3 className="font-semibold inline-flex items-center gap-2 mb-3"><Settings className="h-4 w-4" /> Paramètres</h3>
-          <div className="grid grid-cols-3 gap-3">
-            <Setting label="Imposteurs">
-              <select value={s.imposters} onChange={e => socket.emit('room:settings', { ...s, imposters: +e.target.value })} className="w-full rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm">
-                {Array.from({ length: maxImp }).map((_, i) => <option key={i} value={i + 1}>{i + 1}</option>)}
-              </select>
-            </Setting>
-            <Setting label="Manches">
-              <select value={s.rounds} onChange={e => socket.emit('room:settings', { ...s, rounds: +e.target.value })} className="w-full rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm">
-                {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </Setting>
-            <Setting label="Discussion">
-              <select value={s.discussionSec} onChange={e => socket.emit('room:settings', { ...s, discussionSec: +e.target.value })} className="w-full rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm">
-                {[60, 90, 120, 180].map(n => <option key={n} value={n}>{n}s</option>)}
-              </select>
-            </Setting>
-          </div>
+          <h3 className="font-semibold inline-flex items-center gap-2 mb-3 text-sm text-muted"><Settings className="h-4 w-4" /> Paramètres</h3>
+          {isDraw ? (
+            <div className="grid grid-cols-2 gap-3">
+              <Setting label="Temps / dessin">
+                <select value={s.drawSec} onChange={e => socket.emit('room:settings', { drawSec: +e.target.value })} className="w-full rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm">
+                  {[60, 75, 90, 120].map(n => <option key={n} value={n}>{n}s</option>)}
+                </select>
+              </Setting>
+              <Setting label="Tours / joueur">
+                <select value={s.drawRounds} onChange={e => socket.emit('room:settings', { drawRounds: +e.target.value })} className="w-full rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm">
+                  {[1, 2, 3].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </Setting>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-3">
+              <Setting label="Imposteurs">
+                <select value={s.imposters} onChange={e => socket.emit('room:settings', { imposters: +e.target.value })} className="w-full rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm">
+                  {Array.from({ length: maxImp }).map((_, i) => <option key={i} value={i + 1}>{i + 1}</option>)}
+                </select>
+              </Setting>
+              <Setting label="Manches">
+                <select value={s.rounds} onChange={e => socket.emit('room:settings', { rounds: +e.target.value })} className="w-full rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm">
+                  {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </Setting>
+              <Setting label="Discussion">
+                <select value={s.discussionSec} onChange={e => socket.emit('room:settings', { discussionSec: +e.target.value })} className="w-full rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm">
+                  {[60, 90, 120, 180].map(n => <option key={n} value={n}>{n}s</option>)}
+                </select>
+              </Setting>
+            </div>
+          )}
         </div>
       )}
 
