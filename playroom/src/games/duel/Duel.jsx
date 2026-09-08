@@ -63,6 +63,11 @@ export default function Duel({ socket, room, playerId }) {
       {d.game === 'rps' && <Rps d={d} me={playerId} opp={opp} socket={socket} />}
       {d.game === 'reflexduel' && <Reflex d={d} me={playerId} socket={socket} />}
       {d.game === 'mathduel' && <MathDuel d={d} me={playerId} socket={socket} />}
+      {d.game === 'quizduel' && <QuizDuel d={d} me={playerId} socket={socket} />}
+      {d.game === 'typerace' && <TypeRace d={d} me={playerId} socket={socket} />}
+      {d.game === 'nim' && <Nim d={d} me={playerId} socket={socket} />}
+      {d.game === 'memoduel' && <MemoDuel d={d} me={playerId} socket={socket} />}
+      {d.game === 'dots' && <Dots d={d} me={playerId} socket={socket} />}
 
       {/* Bandeau de résultat de manche */}
       {d.roundOver && !d.matchOver && (
@@ -184,6 +189,128 @@ function MathDuel({ d, me, socket }) {
         <input value={val} onChange={e => setVal(e.target.value)} inputMode="numeric" autoFocus disabled={d.roundOver}
           placeholder="Ta réponse (le plus rapide marque)…" className="w-full rounded-xl border border-border bg-surface-2 px-4 py-3 text-center text-xl font-bold outline-none focus:border-brand" />
       </form>
+    </div>
+  );
+}
+
+/* ---------- Quiz Duel ---------- */
+function QuizDuel({ d, me, socket }) {
+  const [picked, setPicked] = useState(null);
+  useEffect(() => { setPicked(null); }, [d.quiz?.q, d.round]);
+  if (!d.quiz) return <Spinner className="mx-auto my-10" />;
+  return (
+    <div className="space-y-3">
+      <div className="card rounded-2xl p-5 text-center">
+        <Tag color="muted" className="mb-2">{d.quiz.cat}</Tag>
+        <h3 className="text-lg font-semibold">{d.quiz.q}</h3>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-2">
+        {d.quiz.options.map((opt, i) => (
+          <button key={i} disabled={d.roundOver} onClick={() => { setPicked(i); socket.emit('duel:quiz', { choice: i }); }}
+            className={`text-left rounded-xl border px-4 py-3 text-sm font-medium transition-all ${picked === i ? 'border-brand bg-brand/10' : 'border-border bg-surface-2 hover:border-brand/50'}`}>
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-surface text-xs font-bold mr-2">{String.fromCharCode(65 + i)}</span>{opt}
+          </button>
+        ))}
+      </div>
+      <p className="text-center text-xs text-muted">Le premier à trouver la bonne réponse marque.</p>
+    </div>
+  );
+}
+
+/* ---------- Course de frappe ---------- */
+function TypeRace({ d, me, socket }) {
+  const [val, setVal] = useState('');
+  useEffect(() => { setVal(''); }, [d.text, d.round]);
+  const chars = (d.text || '').split('').map((ch, i) => {
+    let cls = 'text-muted';
+    if (i < val.length) cls = val[i] === ch ? 'text-success' : 'text-danger bg-danger/10 rounded';
+    else if (i === val.length) cls = 'text-text bg-brand/20 rounded';
+    return <span key={i} className={cls}>{ch}</span>;
+  });
+  const onChange = (v) => { setVal(v); if (v.trim() === (d.text || '').trim()) socket.emit('duel:type', { text: v }); };
+  return (
+    <div className="space-y-3">
+      <div className="card rounded-2xl p-5 text-lg leading-relaxed font-mono">{chars}</div>
+      <input value={val} onChange={e => onChange(e.target.value)} autoFocus disabled={d.roundOver} autoComplete="off" autoCorrect="off" spellCheck={false}
+        placeholder="Recopie le texte le plus vite possible…" className="w-full rounded-xl border border-border bg-surface-2 px-4 py-3 text-sm outline-none focus:border-brand" />
+    </div>
+  );
+}
+
+/* ---------- Bâtonnets (Nim) ---------- */
+function Nim({ d, me, socket }) {
+  const myTurn = d.turn === me;
+  return (
+    <div className="text-center space-y-4">
+      <div className="flex flex-wrap gap-1.5 justify-center max-w-sm mx-auto min-h-[4rem] items-center">
+        {[...Array(d.sticks || 0)].map((_, i) => <div key={i} className="w-2 h-10 rounded-full bg-gradient-to-b from-brand to-brand-2" />)}
+      </div>
+      <p className="text-sm text-muted">{d.roundOver ? '' : myTurn ? 'À toi : retire 1, 2 ou 3 bâtonnets. Celui qui prend le dernier perd !' : "À l'adversaire…"}</p>
+      <div className="flex gap-2 justify-center">
+        {[1, 2, 3].map(n => (
+          <Button key={n} disabled={!myTurn || d.roundOver || n > d.sticks} onClick={() => socket.emit('duel:take', { n })}>Retirer {n}</Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Duel de Mémoire (paires) ---------- */
+function MemoDuel({ d, me, socket }) {
+  const memo = d.memo; if (!memo) return <Spinner className="mx-auto my-10" />;
+  const myTurn = d.turn === me;
+  return (
+    <div>
+      <p className="text-center text-sm text-muted mb-3">{myTurn ? 'À toi : retourne 2 cartes' : "À l'adversaire…"}</p>
+      <div className="grid grid-cols-4 gap-2 max-w-xs mx-auto">
+        {[...Array(16)].map((_, i) => {
+          const val = memo.faceUp?.[i];
+          const face = val != null;
+          const matched = memo.matched?.[i];
+          return (
+            <button key={i} disabled={!myTurn || face} onClick={() => socket.emit('duel:flip', { index: i })}
+              className={`aspect-square rounded-xl flex items-center justify-center text-2xl font-display font-bold transition-all ${face ? (matched ? 'bg-success/20 text-success' : 'bg-brand/20 text-brand') : 'bg-surface-2 hover:bg-border text-transparent'}`}>
+              {face ? EMOJI[val] : '?'}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex justify-center gap-6 mt-3 text-sm">
+        <span>Toi : <b>{memo.pairs?.[me] || 0}</b> paires</span>
+      </div>
+    </div>
+  );
+}
+const EMOJI = { 1: '🍎', 2: '⭐', 3: '🚀', 4: '🎵', 5: '🐱', 6: '🌈', 7: '⚡', 8: '🍕' };
+
+/* ---------- Petits Carrés (dots & boxes) ---------- */
+function Dots({ d, me, socket }) {
+  const dots = d.dots; if (!dots) return <Spinner className="mx-auto my-10" />;
+  const { rows: R, cols: C, h, v, owners } = dots;
+  const myTurn = d.turn === me;
+  const cell = 56; // px
+  const W = C * cell, H = R * cell;
+  const colorOf = (id) => id === me ? 'rgb(var(--brand))' : 'rgb(var(--accent))';
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <p className="text-sm text-muted">{myTurn ? 'À toi : trace une ligne (compléter un carré rejoue)' : "À l'adversaire…"}</p>
+      <svg width={W + 20} height={H + 20} viewBox={`-10 -10 ${W + 20} ${H + 20}`} className="touch-none">
+        {/* cases possédées */}
+        {owners.map((o, bi) => { const r = Math.floor(bi / C), c = bi % C; return o ? <rect key={'b' + bi} x={c * cell + 4} y={r * cell + 4} width={cell - 8} height={cell - 8} rx="6" fill={colorOf(o)} opacity="0.25" /> : null; })}
+        {/* arêtes horizontales */}
+        {h.map((on, idx) => { const r = Math.floor(idx / C), c = idx % C; const x = c * cell, y = r * cell; return (
+          <line key={'h' + idx} x1={x} y1={y} x2={x + cell} y2={y} stroke={on ? 'rgb(var(--brand))' : 'rgb(var(--border))'} strokeWidth={on ? 5 : 3} strokeLinecap="round"
+            style={{ cursor: myTurn && !on ? 'pointer' : 'default' }} onClick={() => myTurn && !on && socket.emit('duel:edge', { type: 'h', index: idx })} />
+        ); })}
+        {/* arêtes verticales */}
+        {v.map((on, idx) => { const r = Math.floor(idx / (C + 1)), c = idx % (C + 1); const x = c * cell, y = r * cell; return (
+          <line key={'v' + idx} x1={x} y1={y} x2={x} y2={y + cell} stroke={on ? 'rgb(var(--brand))' : 'rgb(var(--border))'} strokeWidth={on ? 5 : 3} strokeLinecap="round"
+            style={{ cursor: myTurn && !on ? 'pointer' : 'default' }} onClick={() => myTurn && !on && socket.emit('duel:edge', { type: 'v', index: idx })} />
+        ); })}
+        {/* points */}
+        {[...Array((R + 1) * (C + 1))].map((_, i) => { const r = Math.floor(i / (C + 1)), c = i % (C + 1); return <circle key={'d' + i} cx={c * cell} cy={r * cell} r="4" fill="rgb(var(--text))" />; })}
+      </svg>
+      <div className="flex gap-4 text-sm"><span>Toi : <b>{dots.counts?.[me] || 0}</b> carré(s)</span></div>
     </div>
   );
 }

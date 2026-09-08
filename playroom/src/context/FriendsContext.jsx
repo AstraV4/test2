@@ -26,13 +26,16 @@ export function FriendsProvider({ children }) {
   const nav = useNavigate();
   const [data, setData] = useState({ friends: [], incoming: [], outgoing: [] });
   const [blocked, setBlocked] = useState([]);
+  const [unread, setUnread] = useState({ counts: {}, total: 0 });
   const [invite, setInvite] = useState(null); // { code, gameType, fromName, fromAvatar }
+  const [dmPing, setDmPing] = useState(0); // incrémenté à chaque DM reçu (pour rafraîchir les vues ouvertes)
   const userId = user?.id;
 
   const refresh = useCallback(async () => {
-    if (!userId) { setData({ friends: [], incoming: [], outgoing: [] }); setBlocked([]); return; }
+    if (!userId) { setData({ friends: [], incoming: [], outgoing: [] }); setBlocked([]); setUnread({ counts: {}, total: 0 }); return; }
     try { const d = await api('/api/friends'); setData(d); } catch { /* ignore */ }
     try { const b = await api('/api/mod/blocked'); setBlocked(b.blocked || []); } catch { /* ignore */ }
+    try { const u = await api('/api/dm/unread'); setUnread(u); } catch { /* ignore */ }
   }, [userId]);
 
   const prevUserId = useRef(null);
@@ -55,12 +58,19 @@ export function FriendsProvider({ children }) {
     const onInvite = (inv) => { setInvite(inv); sound.play('notify'); };
     const onSent = () => toast.success('Invitation envoyée !');
     const onInviteErr = (e) => toast.error(e?.message || 'Invitation impossible.');
+    const onDm = (m) => {
+      setDmPing(p => p + 1);
+      setUnread(u => ({ counts: { ...u.counts, [m.fromId]: (u.counts[m.fromId] || 0) + 1 }, total: (u.total || 0) + 1 }));
+      if (!location.pathname.startsWith('/messages')) toast.info(`💬 ${m.fromName} : ${m.body.slice(0, 40)}`);
+    };
     socket.on('friends:presence', onPresence);
     socket.on('friends:update', onUpdate);
     socket.on('invite:receive', onInvite);
     socket.on('invite:sent', onSent);
     socket.on('invite:error', onInviteErr);
-    return () => { socket.off('friends:presence', onPresence); socket.off('friends:update', onUpdate); socket.off('invite:receive', onInvite); socket.off('invite:sent', onSent); socket.off('invite:error', onInviteErr); };
+    socket.on('dm:new', onDm);
+    socket.emit('game:sync'); // au cas où
+    return () => { socket.off('friends:presence', onPresence); socket.off('friends:update', onUpdate); socket.off('invite:receive', onInvite); socket.off('invite:sent', onSent); socket.off('invite:error', onInviteErr); socket.off('dm:new', onDm); };
   }, [userId, refresh, toast]);
 
   const addByUsername = async (username) => { const d = await api('/api/friends/request', { method: 'POST', body: { username } }); await refresh(); return d.status; };
@@ -75,7 +85,8 @@ export function FriendsProvider({ children }) {
 
   const blockedIds = new Set(blocked.map(b => b.id));
   const onlineCount = data.friends.filter(f => f.online).length;
-  const value = { ...data, blocked, blockedIds, onlineCount, refresh, addByUsername, accept, decline, cancel, remove, invitePlayer, block, unblock, report };
+  const markReadLocal = (otherId) => setUnread(u => { const c = { ...u.counts }; const n = c[otherId] || 0; delete c[otherId]; return { counts: c, total: Math.max(0, (u.total || 0) - n) }; });
+  const value = { ...data, blocked, blockedIds, unread, dmPing, onlineCount, refresh, markReadLocal, addByUsername, accept, decline, cancel, remove, invitePlayer, block, unblock, report };
 
   return (
     <FriendsCtx.Provider value={value}>

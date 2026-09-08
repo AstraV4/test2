@@ -15,7 +15,7 @@ import Duel from '../games/duel/Duel.jsx';
 import Chat from '../components/Chat.jsx';
 import { sound } from '../lib/sound.js';
 
-const DUEL_TYPES = ['morpion', 'connect4', 'rps', 'reflexduel', 'mathduel'];
+const DUEL_TYPES = ['morpion', 'connect4', 'rps', 'reflexduel', 'mathduel', 'quizduel', 'typerace', 'nim', 'memoduel', 'dots'];
 
 export default function Room() {
   const { code: codeParam } = useParams();
@@ -211,7 +211,7 @@ function LobbyControls({ room, me, isHost }) {
         </div>
         <h3 className="font-semibold mb-2 mt-3 text-sm text-muted">En duel (2 joueurs)</h3>
         <div className="grid grid-cols-5 gap-2">
-          {[{ id: 'morpion', emo: '#️⃣', name: 'Morpion' }, { id: 'connect4', emo: '🔴', name: 'Puiss.4' }, { id: 'rps', emo: '✊', name: 'PFC' }, { id: 'reflexduel', emo: '⚡', name: 'Réflexe' }, { id: 'mathduel', emo: '➗', name: 'Calcul' }].map(g => (
+          {[{ id: 'morpion', emo: '#️⃣', name: 'Morpion' }, { id: 'connect4', emo: '🔴', name: 'Puiss.4' }, { id: 'rps', emo: '✊', name: 'PFC' }, { id: 'reflexduel', emo: '⚡', name: 'Réflexe' }, { id: 'mathduel', emo: '➗', name: 'Calcul' }, { id: 'quizduel', emo: '❓', name: 'Quiz' }, { id: 'typerace', emo: '⌨️', name: 'Frappe' }, { id: 'nim', emo: '🥢', name: 'Bâtonnets' }, { id: 'memoduel', emo: '🃏', name: 'Mémoire' }, { id: 'dots', emo: '⬜', name: 'Carrés' }].map(g => (
             <button key={g.id} disabled={!isHost} onClick={() => socket.emit('room:setGame', { gameType: g.id })}
               className={`rounded-xl border p-2 text-center transition-all ${room.gameType === g.id ? 'border-brand bg-brand/10' : 'border-border bg-surface-2 hover:border-brand/40'} ${!isHost ? 'opacity-70 cursor-default' : ''}`}>
               <div className="text-lg">{g.emo}</div>

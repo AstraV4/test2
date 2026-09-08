@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Gamepad2, Home, Grid3x3, Users2, Trophy, Search, Sun, Moon, Volume2, VolumeX, Menu, X, LogOut, User as UserIcon, Flame, UserPlus } from 'lucide-react';
+import { Gamepad2, Home, Grid3x3, Users2, Trophy, Search, Sun, Moon, Volume2, VolumeX, Menu, X, LogOut, User as UserIcon, Flame, UserPlus, MessageCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useTheme } from '../../context/ThemeContext.jsx';
 import { useFriends } from '../../context/FriendsContext.jsx';
@@ -11,8 +11,9 @@ const NAV = [
   { to: '/', label: 'Accueil', icon: Home, end: true },
   { to: '/jeux', label: 'Jeux', icon: Grid3x3 },
   { to: '/defi', label: 'Défi', icon: Flame },
-  { to: '/multijoueur', label: 'Multijoueur', icon: Users2 },
+  { to: '/multijoueur', label: 'Multi', icon: Users2 },
   { to: '/amis', label: 'Amis', icon: UserPlus },
+  { to: '/messages', label: 'Messages', icon: MessageCircle },
   { to: '/classements', label: 'Classements', icon: Trophy },
 ];
 
@@ -21,13 +22,17 @@ export default function Header() {
   const { theme, toggle } = useTheme();
   const friends = useFriends();
   const incoming = friends?.incoming?.length || 0;
+  const unread = friends?.unread?.total || 0;
   const [open, setOpen] = useState(false);
   const [muted, setMuted] = useState(!sound.enabled);
   const nav = useNavigate();
 
   const toggleSound = () => { const en = sound.toggle(); setMuted(!en); if (en) sound.play('ok'); };
   const linkClass = ({ isActive }) => `px-3 py-2 rounded-xl text-sm font-medium transition-colors inline-flex items-center gap-2 relative ${isActive ? 'bg-surface-2 text-text' : 'text-muted hover:text-text hover:bg-surface-2/60'}`;
-  const badge = (to) => (to === '/amis' && incoming > 0) ? <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-danger text-white text-[10px] font-bold flex items-center justify-center">{incoming}</span> : null;
+  const badge = (to) => {
+    const n = to === '/amis' ? incoming : to === '/messages' ? unread : 0;
+    return n > 0 ? <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-danger text-white text-[10px] font-bold flex items-center justify-center">{n}</span> : null;
+  };
 
   return (
     <header className="sticky top-0 z-50 glass border-b border-border">

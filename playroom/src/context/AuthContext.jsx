@@ -25,12 +25,13 @@ export function AuthProvider({ children }) {
   const logout = async () => { await api('/api/auth/logout', { method: 'POST' }).catch(() => {}); setUser(null); };
   const refresh = useCallback(async () => { try { const d = await api('/api/auth/me'); setUser(d.user); } catch { /* ignore */ } }, []);
   const setAvatar = async (avatar) => { const d = await api('/api/me/avatar', { method: 'POST', body: { avatar } }); setUser(d.user); };
+  const updateProfile = async (patch) => { const d = await api('/api/me/profile-update', { method: 'POST', body: patch }); setUser(d.user); return d.user; };
 
   const openAuth = (mode = 'login') => { setAuthMode(mode); setAuthOpen(true); };
   const closeAuth = () => setAuthOpen(false);
 
   return (
-    <AuthCtx.Provider value={{ user, setUser, loading, login, register, logout, refresh, setAvatar, authOpen, authMode, openAuth, closeAuth }}>
+    <AuthCtx.Provider value={{ user, setUser, loading, login, register, logout, refresh, setAvatar, updateProfile, authOpen, authMode, openAuth, closeAuth }}>
       {children}
     </AuthCtx.Provider>
   );

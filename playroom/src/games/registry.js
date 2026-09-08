@@ -1,4 +1,4 @@
-import { Zap, Brain, Hash, Shuffle, HelpCircle, Sparkles, Ghost, Calculator, Keyboard, Grid3x3, Palette, PartyPopper, Feather, MessageSquare, Swords, Hand, CircleDot, Divide } from 'lucide-react';
+import { Zap, Brain, Hash, Shuffle, HelpCircle, Sparkles, Ghost, Calculator, Keyboard, Grid3x3, Palette, PartyPopper, Feather, MessageSquare, Swords, Hand, CircleDot, Divide, Timer, Layers, Minus, Grid2x2 } from 'lucide-react';
 
 // Métadonnées communes à tous les jeux. Ajouter un jeu = ajouter une entrée ici
 // + un composant dans src/games/<id>/. Le reste (fiche, routes, cartes) est générique.
@@ -154,6 +154,46 @@ export const GAMES = [
     description: "Même opération pour les deux joueurs : le premier à donner la bonne réponse marque le point. Premier à 5 l'emporte.",
     color: ['#38bdf8', '#6366f1'], ambiance: 'number', mode: 'multi', category: ['Duel', 'Multijoueur', 'Parties rapides'],
     players: '2', duration: '2-4 min', difficulty: 'Moyen', avgScore: null, tags: ['Duel', '1v1', 'Rapide'],
+    featured: false, isNew: true,
+  },
+  {
+    id: 'quizduel', slug: 'quiz-duel', name: 'Quiz Duel', icon: HelpCircle,
+    tagline: 'Buzzer trivia : le plus rapide à la bonne réponse marque.',
+    description: "Une question de culture générale s'affiche pour les deux joueurs. Le premier à cliquer la bonne réponse marque. Premier à 5 gagne.",
+    color: ['#fb923c', '#f43f5e'], ambiance: 'logic', mode: 'multi', category: ['Duel', 'Multijoueur', 'Parties rapides'],
+    players: '2', duration: '3-5 min', difficulty: 'Moyen', avgScore: null, tags: ['Duel', '1v1'],
+    featured: false, isNew: true,
+  },
+  {
+    id: 'typerace', slug: 'course-de-frappe', name: 'Course de Frappe', icon: Keyboard,
+    tagline: 'Recopie le texte avant l\u2019adversaire.',
+    description: "Un texte identique pour les deux : le premier à le recopier sans erreur remporte la manche. Au meilleur des 3.",
+    color: ['#2dd4bf', '#0ea5e9'], ambiance: 'type', mode: 'multi', category: ['Duel', 'Multijoueur', 'Parties rapides'],
+    players: '2', duration: '2-4 min', difficulty: 'Moyen', avgScore: null, tags: ['Duel', '1v1', 'Rapide'],
+    featured: false, isNew: true,
+  },
+  {
+    id: 'nim', slug: 'batonnets', name: 'Bâtonnets', icon: Minus,
+    tagline: 'Ne prends pas le dernier bâtonnet !',
+    description: "15 bâtonnets sur la table. Chacun son tour, retire-en 1, 2 ou 3. Celui qui prend le dernier a perdu. Un jeu de stratégie pure, au meilleur des 3.",
+    color: ['#a78bfa', '#7c5cff'], ambiance: 'logic', mode: 'multi', category: ['Duel', 'Multijoueur', 'Réflexion'],
+    players: '2', duration: '2-4 min', difficulty: 'Moyen', avgScore: null, tags: ['Duel', '1v1'],
+    featured: false, isNew: true,
+  },
+  {
+    id: 'memoduel', slug: 'duel-memoire', name: 'Duel de Mémoire', icon: Layers,
+    tagline: 'Retrouve le plus de paires que l\u2019adversaire.',
+    description: "Un jeu de paires face cachée. Chacun son tour, retourne deux cartes : une paire = un point et tu rejoues. Celui qui a le plus de paires à la fin gagne.",
+    color: ['#a78bfa', '#ec4899'], ambiance: 'grid', mode: 'multi', category: ['Duel', 'Multijoueur', 'Réflexion'],
+    players: '2', duration: '3-6 min', difficulty: 'Moyen', avgScore: null, tags: ['Duel', '1v1'],
+    featured: false, isNew: true,
+  },
+  {
+    id: 'dots', slug: 'petits-carres', name: 'Petits Carrés', icon: Grid2x2,
+    tagline: 'Ferme plus de carrés que l\u2019adversaire.',
+    description: "Tracez des lignes à tour de rôle. Fermer un carré te le fait gagner… et te fait rejouer. Le plus de carrés à la fin l'emporte. (Dots & Boxes)",
+    color: ['#34d399', '#22d3ee'], ambiance: 'grid', mode: 'multi', category: ['Duel', 'Multijoueur', 'Réflexion'],
+    players: '2', duration: '4-7 min', difficulty: 'Moyen', avgScore: null, tags: ['Duel', '1v1'],
     featured: false, isNew: true,
   },
 ];

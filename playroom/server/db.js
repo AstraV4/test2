@@ -70,10 +70,28 @@ export function levelFromXp(xp) {
   return { level: lvl, into: xp - total, need, xp };
 }
 
+// Migration douce : colonnes de personnalisation du profil.
+for (const [col, def] of [['display_name', 'TEXT'], ['bio', 'TEXT'], ['accent', 'TEXT']]) {
+  const exists = db.prepare("SELECT 1 FROM pragma_table_info('users') WHERE name = ?").get(col);
+  if (!exists) db.exec(`ALTER TABLE users ADD COLUMN ${col} ${def}`);
+}
+const _updateProfile = db.prepare('UPDATE users SET display_name = ?, bio = ?, accent = ? WHERE id = ?');
+const ACCENTS = ['violet', 'bleu', 'teal', 'rose', 'orange', 'vert'];
+export function updateProfile(id, { displayName, bio, accent }) {
+  const dn = displayName != null ? String(displayName).replace(/[<>]/g, '').slice(0, 24).trim() : null;
+  const b = bio != null ? String(bio).replace(/[<>]/g, '').slice(0, 200).trim() : null;
+  const ac = ACCENTS.includes(accent) ? accent : 'violet';
+  _updateProfile.run(dn || null, b || null, ac, id);
+  return findUserById(id);
+}
+
 export function publicUser(u) {
   if (!u) return null;
   const lv = levelFromXp(u.xp);
-  return { id: u.id, username: u.username, avatar: u.avatar, xp: u.xp, level: lv.level, levelInfo: lv };
+  return {
+    id: u.id, username: u.username, avatar: u.avatar, xp: u.xp, level: lv.level, levelInfo: lv,
+    displayName: u.display_name || null, bio: u.bio || null, accent: u.accent || 'violet',
+  };
 }
 
 /* ---------------- Scores / XP / stats ---------------- */
@@ -254,5 +272,36 @@ export function seasonLeaderboard(limit = 50) {
   `).all(sid, limit);
   return rows.map((r, i) => ({ rank: i + 1, userId: r.id, username: r.username, avatar: r.avatar, level: levelFromXp(r.totalXp).level, score: r.sxp }));
 }
+
+/* ---------------- Messagerie directe (amis) ---------------- */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS dms (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_id INTEGER NOT NULL,
+    to_id   INTEGER NOT NULL,
+    body    TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    read_at INTEGER
+  );
+  CREATE INDEX IF NOT EXISTS idx_dms_pair ON dms(from_id, to_id, id);
+`);
+const _insDm = db.prepare('INSERT INTO dms (from_id, to_id, body, created_at) VALUES (?, ?, ?, ?)');
+export function sendDm(fromId, toId, body) {
+  const text = String(body || '').replace(/[<>]/g, '').slice(0, 1000).trim();
+  if (!text) return null;
+  const info = _insDm.run(fromId, toId, text, now());
+  return { id: info.lastInsertRowid, fromId, toId, body: text, createdAt: now() };
+}
+const _thread = db.prepare(`
+  SELECT id, from_id AS fromId, to_id AS toId, body, created_at AS createdAt, read_at AS readAt
+  FROM dms WHERE (from_id = @a AND to_id = @b) OR (from_id = @b AND to_id = @a)
+  ORDER BY id DESC LIMIT @limit
+`);
+export function dmThread(a, b, limit = 50) { return _thread.all({ a, b, limit }).reverse(); }
+const _markRead = db.prepare('UPDATE dms SET read_at = ? WHERE to_id = ? AND from_id = ? AND read_at IS NULL');
+export function markDmRead(meId, otherId) { _markRead.run(now(), meId, otherId); }
+const _unreadByFrom = db.prepare('SELECT from_id AS fromId, COUNT(*) AS n FROM dms WHERE to_id = ? AND read_at IS NULL GROUP BY from_id');
+export function unreadCounts(meId) { const out = {}; for (const r of _unreadByFrom.all(meId)) out[r.fromId] = r.n; return out; }
+export function unreadTotal(meId) { return db.prepare('SELECT COUNT(*) n FROM dms WHERE to_id = ? AND read_at IS NULL').get(meId).n; }
 
 export default db;

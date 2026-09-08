@@ -1,5 +1,5 @@
 import { customAlphabet } from 'nanoid';
-import { pickImposterWord, IMPOSTER_THEME_LIST, DRAW_WORDS, buildPartyRound, BLUFF_QA, CAPTION_PROMPTS } from './gamedata.js';
+import { pickImposterWord, IMPOSTER_THEME_LIST, DRAW_WORDS, buildPartyRound, BLUFF_QA, CAPTION_PROMPTS, QUIZ } from './gamedata.js';
 
 const genCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 5);
 
@@ -106,6 +106,11 @@ export class RoomManager {
         chosenIds: d.choices ? Object.keys(d.choices) : [], reveal: d.reveal || null,
         state: d.state || null, lastRt: d.lastRt || null,
         problem: d.problem ? { text: d.problem.text } : null,
+        quiz: d.quiz ? { q: d.quiz.q, options: d.quiz.options, cat: d.quiz.cat } : null,
+        text: (d.game === 'typerace') ? d.text : null,
+        sticks: (d.game === 'nim') ? d.sticks : null,
+        memo: (d.game === 'memoduel') ? { cols: 4, matched: d.matched, pairs: d.pairs, faceUp: memoFaceUp(d) } : null,
+        dots: (d.game === 'dots') ? { rows: 3, cols: 3, h: d.h, v: d.v, owners: d.owners, counts: d.counts } : null,
       };
     }
     return base;
@@ -152,7 +157,7 @@ export class RoomManager {
 
   setGameType(socket, type) {
     const room = this._room(socket); if (!room || !this._isHost(room, socket) || room.phase !== 'lobby') return;
-    if (['imposter', 'draw', 'party', 'bluff', 'caption', 'morpion', 'connect4', 'rps', 'reflexduel', 'mathduel'].includes(type)) { room.gameType = type; this.emitRoom(room); this._touchActivity(room); }
+    if (['imposter', 'draw', 'party', 'bluff', 'caption', 'morpion', 'connect4', 'rps', 'reflexduel', 'mathduel', 'quizduel', 'typerace', 'nim', 'memoduel', 'dots'].includes(type)) { room.gameType = type; this.emitRoom(room); this._touchActivity(room); }
   }
 
   // Renvoie l'état privé courant à un joueur qui (ré)affiche le jeu.
@@ -206,7 +211,7 @@ export class RoomManager {
 
   startGame(socket) {
     const room = this._room(socket); if (!room || !this._isHost(room, socket)) return;
-    const isDuel = ['morpion', 'connect4', 'rps', 'reflexduel', 'mathduel'].includes(room.gameType);
+    const isDuel = ['morpion', 'connect4', 'rps', 'reflexduel', 'mathduel', 'quizduel', 'typerace', 'nim', 'memoduel', 'dots'].includes(room.gameType);
     if (isDuel) { if (room.players.length !== 2) return socket.emit('room:error', { message: 'Ce jeu se joue exactement à 2 joueurs.' }); }
     else if (room.players.length < 3) return socket.emit('room:error', { message: 'Il faut au moins 3 joueurs.' });
     if (room.gameType === 'draw') this._beginDraw(room);
@@ -678,7 +683,8 @@ export class RoomManager {
   _beginDuel(room) {
     const ids = room.players.filter(p => p.connected).map(p => p.id);
     if (ids.length !== 2) { const s = this.io.sockets.sockets.get(room.players.find(p => p.id === room.hostId)?.socketId); s?.emit('room:error', { message: 'Ce jeu se joue exactement à 2 joueurs.' }); return; }
-    const target = (room.gameType === 'reflexduel' || room.gameType === 'mathduel') ? 5 : 3;
+    const TARGETS = { reflexduel: 5, mathduel: 5, quizduel: 5, typerace: 3, nim: 2, morpion: 3, connect4: 3, rps: 3, memoduel: 999, dots: 999 };
+    const target = TARGETS[room.gameType] || 3;
     room.duel = { game: room.gameType, p: [ids[0], ids[1]], target, scores: { [ids[0]]: 0, [ids[1]]: 0 }, round: 0, matchOver: false, winnerId: null };
     room.phase = 'duel';
     this._duelStartRound(room);
@@ -696,6 +702,11 @@ export class RoomManager {
       room.duelGoTimer = setTimeout(() => { if (room.duel !== d || d.roundOver) return; d.state = 'go'; d.goAt = Date.now(); this.io.to(room.code).emit('duel:go', {}); this.emitRoom(room); }, 1500 + Math.random() * 2800);
     }
     else if (d.game === 'mathduel') { d.problem = makeMath(d.round); d.turn = null; }
+    else if (d.game === 'quizduel') { const q = QUIZ[Math.floor(Math.random() * QUIZ.length)]; d.quiz = { q: q.q, options: q.a, c: q.c, cat: q.cat }; d.turn = null; }
+    else if (d.game === 'typerace') { d.text = TYPE_TEXTS[Math.floor(Math.random() * TYPE_TEXTS.length)]; d.turn = null; }
+    else if (d.game === 'nim') { d.sticks = 15; d.turn = starter; }
+    else if (d.game === 'memoduel') { const vals = []; for (let i = 1; i <= 8; i++) { vals.push(i, i); } shuffle(vals); d.deck = vals; d.matched = Array(16).fill(false); d.flipped = []; d.locked = false; d.pairs = { [a]: 0, [b]: 0 }; d.turn = starter; }
+    else if (d.game === 'dots') { d.h = Array(12).fill(false); d.v = Array(12).fill(false); d.owners = Array(9).fill(null); d.counts = { [a]: 0, [b]: 0 }; d.turn = starter; }
     this.emitRoom(room);
   }
   _duelWin(room, winnerId, extra = {}) {
@@ -713,6 +724,15 @@ export class RoomManager {
       room.duelTimer = setTimeout(() => this._duelStartRound(room), 2600);
     }
   }
+
+  _duelEndMatch(room, winnerId) {
+    const d = room.duel; if (!d) return;
+    d.matchOver = true; d.winnerId = winnerId; d.roundOver = true; room.phase = 'duelOver';
+    this._clearTimer(room);
+    this.io.to(room.code).emit('duel:over', { winnerId });
+    this.emitRoom(room);
+  }
+
   duelCell(socket, cell) {
     const room = this._room(socket); const d = room?.duel; if (!room || !d || d.game !== 'morpion' || room.phase !== 'duel' || d.roundOver) return;
     const me = this._me(room, socket); if (!me || me.id !== d.turn) return;
@@ -756,6 +776,60 @@ export class RoomManager {
     const room = this._room(socket); const d = room?.duel; if (!room || !d || d.game !== 'mathduel' || room.phase !== 'duel' || d.roundOver) return;
     const me = this._me(room, socket); if (!me) return;
     if (parseInt(value, 10) === d.problem.answer) this._duelWin(room, me.id);
+  }
+
+  duelQuiz(socket, choice) {
+    const room = this._room(socket); const d = room?.duel; if (!room || !d || d.game !== 'quizduel' || room.phase !== 'duel' || d.roundOver) return;
+    const me = this._me(room, socket); if (!me) return;
+    if (parseInt(choice, 10) === d.quiz.c) this._duelWin(room, me.id);
+  }
+  duelType(socket, text) {
+    const room = this._room(socket); const d = room?.duel; if (!room || !d || d.game !== 'typerace' || room.phase !== 'duel' || d.roundOver) return;
+    const me = this._me(room, socket); if (!me) return;
+    if (String(text || '').trim() === String(d.text).trim()) this._duelWin(room, me.id);
+  }
+  duelTake(socket, n) {
+    const room = this._room(socket); const d = room?.duel; if (!room || !d || d.game !== 'nim' || room.phase !== 'duel' || d.roundOver) return;
+    const me = this._me(room, socket); if (!me || me.id !== d.turn) return;
+    const k = parseInt(n, 10); if (!(k >= 1 && k <= 3) || k > d.sticks) return;
+    d.sticks -= k;
+    if (d.sticks <= 0) { const opp = d.p.find(x => x !== me.id); return this._duelWin(room, opp); } // celui qui prend le dernier perd
+    d.turn = d.p.find(x => x !== me.id); this.emitRoom(room);
+  }
+  duelFlip(socket, index) {
+    const room = this._room(socket); const d = room?.duel; if (!room || !d || d.game !== 'memoduel' || room.phase !== 'duel' || d.matchOver) return;
+    const me = this._me(room, socket); if (!me || me.id !== d.turn || d.locked) return;
+    const i = parseInt(index, 10);
+    if (!(i >= 0 && i < 16) || d.matched[i] || d.flipped.includes(i)) return;
+    d.flipped.push(i);
+    this.emitRoom(room);
+    if (d.flipped.length === 2) {
+      d.locked = true;
+      const [x, y] = d.flipped;
+      if (d.deck[x] === d.deck[y]) {
+        d.matched[x] = true; d.matched[y] = true; d.pairs[me.id] = (d.pairs[me.id] || 0) + 1; d.scores[me.id] = d.pairs[me.id]; d.flipped = []; d.locked = false;
+        if (d.matched.every(Boolean)) { const [a, b] = d.p; const w = d.pairs[a] === d.pairs[b] ? 'draw' : (d.pairs[a] > d.pairs[b] ? a : b); return this._duelEndMatch(room, w); }
+        this.emitRoom(room);
+      } else {
+        room.memoTimer = setTimeout(() => { d.flipped = []; d.locked = false; d.turn = d.p.find(z => z !== me.id); this.emitRoom(room); }, 1200);
+      }
+    }
+  }
+  duelEdge(socket, payload) {
+    const room = this._room(socket); const d = room?.duel; if (!room || !d || d.game !== 'dots' || room.phase !== 'duel' || d.matchOver) return;
+    const me = this._me(room, socket); if (!me || me.id !== d.turn) return;
+    const type = payload?.type, idx = parseInt(payload?.index, 10);
+    const C = 3, R = 3;
+    if (type === 'h') { if (!(idx >= 0 && idx < 12) || d.h[idx]) return; d.h[idx] = true; }
+    else if (type === 'v') { if (!(idx >= 0 && idx < 12) || d.v[idx]) return; d.v[idx] = true; }
+    else return;
+    // vérifier les cases complétées
+    const boxDone = (r, c) => d.h[r * C + c] && d.h[(r + 1) * C + c] && d.v[r * (C + 1) + c] && d.v[r * (C + 1) + c + 1];
+    let completed = 0;
+    for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) { const bi = r * C + c; if (!d.owners[bi] && boxDone(r, c)) { d.owners[bi] = me.id; d.counts[me.id] = (d.counts[me.id] || 0) + 1; d.scores[me.id] = d.counts[me.id]; completed++; } }
+    if (d.h.every(Boolean) && d.v.every(Boolean)) { const [a, b] = d.p; const w = d.counts[a] === d.counts[b] ? 'draw' : (d.counts[a] > d.counts[b] ? a : b); return this._duelEndMatch(room, w); }
+    if (completed === 0) d.turn = d.p.find(x => x !== me.id); // sinon on rejoue
+    this.emitRoom(room);
   }
 
   /* ============================ CHAT ============================ */
@@ -810,7 +884,7 @@ export class RoomManager {
     this.io.to(room.code).emit('game:timer', { endsAt: room.endsAt, phase: room.phase });
     room.timer = setTimeout(fn, ms);
   }
-  _clearTimer(room) { if (room.timer) { clearTimeout(room.timer); room.timer = null; } if (room.hintTimer) { clearTimeout(room.hintTimer); room.hintTimer = null; } if (room.duelTimer) { clearTimeout(room.duelTimer); room.duelTimer = null; } if (room.duelGoTimer) { clearTimeout(room.duelGoTimer); room.duelGoTimer = null; } room.endsAt = null; }
+  _clearTimer(room) { if (room.timer) { clearTimeout(room.timer); room.timer = null; } if (room.hintTimer) { clearTimeout(room.hintTimer); room.hintTimer = null; } if (room.duelTimer) { clearTimeout(room.duelTimer); room.duelTimer = null; } if (room.duelGoTimer) { clearTimeout(room.duelGoTimer); room.duelGoTimer = null; } if (room.memoTimer) { clearTimeout(room.memoTimer); room.memoTimer = null; } room.endsAt = null; }
   _sockOf(room, playerId) { const p = room.players.find(x => x.id === playerId); return p ? p.socketId : null; }
 }
 
@@ -824,7 +898,7 @@ function pickN(arr, n) { return shuffle([...arr]).slice(0, n); }
 function isLetter(c) { return /[a-zA-Z0-9À-ÿ]/.test(c); }
 function buildPattern(word, revealed) { return [...word].map((c, i) => (isLetter(c) ? (revealed.has(i) ? c : '_') : c)).join(''); }
 
-const DUEL_GAMES = new Set(['morpion', 'connect4', 'rps', 'reflexduel', 'mathduel']);
+const DUEL_GAMES = new Set(['morpion', 'connect4', 'rps', 'reflexduel', 'mathduel', 'quizduel', 'typerace', 'nim', 'memoduel', 'dots']);
 function ticWinner(b) {
   const L = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
   for (const [x,y,z] of L) if (b[x] && b[x] === b[y] && b[y] === b[z]) return [x,y,z];
@@ -852,4 +926,17 @@ function makeMath(round) {
   else { a=5+Math.floor(Math.random()*(15+lvl*6)); b=1+Math.floor(Math.random()*(15+lvl*5)); if(op==='-'&&b>a)[a,b]=[b,a]; }
   const answer = op==='+'?a+b:op==='-'?a-b:a*b;
   return { text: `${a} ${op} ${b}`, answer };
+}
+
+const TYPE_TEXTS = [
+  'Le renard rapide saute par-dessus le chien.',
+  'Jouer en duel demande vitesse et précision.',
+  'La victoire appartient au plus concentré.',
+  'Chaque seconde compte dans une course de frappe.',
+  'Reste calme, tape juste, et gagne la manche.',
+];
+function memoFaceUp(d) {
+  const out = {};
+  for (let i = 0; i < 16; i++) if (d.matched[i] || (d.flipped && d.flipped.includes(i))) out[i] = d.deck[i];
+  return out;
 }

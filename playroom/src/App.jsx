@@ -14,6 +14,7 @@ import Multiplayer from './pages/Multiplayer.jsx';
 import Room from './pages/Room.jsx';
 import Daily from './pages/Daily.jsx';
 import Friends from './pages/Friends.jsx';
+import Messages from './pages/Messages.jsx';
 import { FriendsProvider } from './context/FriendsContext.jsx';
 
 export default function App() {
@@ -31,6 +32,8 @@ export default function App() {
           <Route path="/jeux/:slug" element={<GameDetail />} />
           <Route path="/defi" element={<Daily />} />
           <Route path="/amis" element={<Friends />} />
+          <Route path="/messages" element={<Messages />} />
+          <Route path="/messages/:userId" element={<Messages />} />
           <Route path="/multijoueur" element={<Multiplayer />} />
           <Route path="/salon/:code" element={<Room />} />
           <Route path="/classements" element={<Leaderboards />} />

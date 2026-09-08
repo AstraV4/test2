@@ -14,6 +14,7 @@ import {
   sendRequest, acceptRequest, declineRequest, cancelRequest, listIncoming, listOutgoing, searchUsers,
   blockUser, unblockUser, isBlocked, blockedBetween, listBlocked, listBlockedIds, addReport,
   seasonInfo, addSeasonXp, seasonXpOf, seasonLeaderboard,
+  sendDm, dmThread, markDmRead, unreadCounts, unreadTotal, updateProfile,
 } from './db.js';
 import { COOKIE, setAuthCookie, clearAuthCookie, userIdFromReq, requireAuth, verifyToken } from './auth.js';
 import { RoomManager } from './rooms.js';
@@ -84,6 +85,13 @@ app.post('/api/me/avatar', requireAuth, (req, res) => {
   const avatar = String(req.body?.avatar || 'nebula').slice(0, 24);
   setAvatar(req.userId, avatar);
   res.json({ user: publicUser(findUserById(req.userId)) });
+});
+
+app.post('/api/me/profile-update', requireAuth, rateLimit(30, 60000), (req, res) => {
+  const user = updateProfile(req.userId, {
+    displayName: req.body?.displayName, bio: req.body?.bio, accent: req.body?.accent,
+  });
+  res.json({ user: publicUser(user) });
 });
 
 /* ============================ PROFIL / STATS ============================ */
@@ -274,6 +282,26 @@ app.post('/api/friends/remove', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+/* ============================ MESSAGERIE (DM) ============================ */
+app.get('/api/dm/unread', requireAuth, (req, res) => res.json({ counts: unreadCounts(req.userId), total: unreadTotal(req.userId) }));
+app.get('/api/dm/:userId', requireAuth, (req, res) => {
+  const other = parseInt(req.params.userId, 10);
+  if (!areFriends(req.userId, other)) return res.status(403).json({ error: 'not_friends' });
+  markDmRead(req.userId, other);
+  res.json({ messages: dmThread(req.userId, other, 60), other: publicUser(findUserById(other)) });
+});
+app.post('/api/dm/:userId', requireAuth, rateLimit(120, 60000), (req, res) => {
+  const other = parseInt(req.params.userId, 10);
+  if (!areFriends(req.userId, other)) return res.status(403).json({ error: 'not_friends' });
+  if (blockedBetween(req.userId, other)) return res.status(403).json({ error: 'blocked' });
+  const msg = sendDm(req.userId, other, req.body?.body);
+  if (!msg) return res.status(400).json({ error: 'empty' });
+  const from = findUserById(req.userId);
+  // Notifier le destinataire en temps réel
+  presence.emitToUser(other, 'dm:new', { ...msg, fromName: from.username, fromAvatar: from.avatar });
+  res.json({ message: msg });
+});
+
 /* ============================ MODÉRATION ============================ */
 app.get('/api/mod/blocked', requireAuth, (req, res) => res.json({ blocked: listBlocked(req.userId) }));
 app.post('/api/mod/block', requireAuth, (req, res) => {
@@ -357,6 +385,11 @@ io.on('connection', (socket) => {
   socket.on('duel:rps', (d) => rooms.duelRps(socket, d?.choice));
   socket.on('duel:tap', () => rooms.duelTap(socket));
   socket.on('duel:answer', (d) => rooms.duelAnswer(socket, d?.value));
+  socket.on('duel:quiz', (d) => rooms.duelQuiz(socket, d?.choice));
+  socket.on('duel:type', (d) => rooms.duelType(socket, d?.text));
+  socket.on('duel:take', (d) => rooms.duelTake(socket, d?.n));
+  socket.on('duel:flip', (d) => rooms.duelFlip(socket, d?.index));
+  socket.on('duel:edge', (d) => rooms.duelEdge(socket, d));
 
   // Invitation directe dans son salon
   socket.on('invite:send', (d) => {
