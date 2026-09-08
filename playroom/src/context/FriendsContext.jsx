@@ -87,11 +87,13 @@ export function FriendsProvider({ children }) {
   const unblock = async (uid) => { await api('/api/mod/unblock', { method: 'POST', body: { userId: uid } }); await refresh(); };
   const report = async (uid, reason) => { await api('/api/mod/report', { method: 'POST', body: { userId: uid, reason } }); };
   const favorite = async (uid, on) => { await api('/api/friends/favorite', { method: 'POST', body: { userId: uid, on } }); await refresh(); };
+  const setNickname = async (uid, nick) => { await api('/api/friends/nickname', { method: 'POST', body: { userId: uid, nick } }); await refresh(); };
+  const nameOf = (f) => f?.nickname || f?.displayName || f?.username || 'Joueur';
 
   const blockedIds = new Set(blocked.map(b => b.id));
   const onlineCount = data.friends.filter(f => f.online).length;
   const markReadLocal = (otherId) => setUnread(u => { const c = { ...u.counts }; const n = c[otherId] || 0; delete c[otherId]; return { counts: c, total: Math.max(0, (u.total || 0) - n) }; });
-  const value = { ...data, blocked, blockedIds, unread, dmPing, onlineCount, refresh, markReadLocal, addByUsername, accept, decline, cancel, remove, invitePlayer, block, unblock, report, favorite };
+  const value = { ...data, blocked, blockedIds, unread, dmPing, onlineCount, refresh, markReadLocal, addByUsername, accept, decline, cancel, remove, invitePlayer, block, unblock, report, favorite, setNickname, nameOf };
 
   return (
     <FriendsCtx.Provider value={value}>

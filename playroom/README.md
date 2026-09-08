@@ -55,3 +55,10 @@ npm run dev
 ## Crush secret & flirt
 - Crush secret réciproque : sur le profil d'un ami, un bouton discret « J'ai un crush ». Ça reste 100% secret et ne se révèle QUE si l'autre a craqué aussi (révélation simultanée + notification temps réel). Aucune fuite possible dans le cas contraire.
 - Compatibilité : sélecteur d'ambiance Mignon / Flirt / Mix (le mode Flirt propose des questions plus taquines mais correctes).
+
+## Social avancé
+- Surnoms d'amis (visibles seulement par toi).
+- Suppression de ses propres messages (temps réel).
+- Accusés de lecture (« Vu ») et dernière connexion (« vu il y a… »).
+- Jeux en favoris (⭐ sur les cartes + section « Mes favoris »).
+- Salon multijoueur redesigné (en-tête premium, avatars en ligne, cartes joueurs).

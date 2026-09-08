@@ -285,6 +285,7 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_dms_pair ON dms(from_id, to_id, id);
 `);
+{ const has = db.prepare("SELECT 1 FROM pragma_table_info('dms') WHERE name = 'deleted'").get(); if (!has) db.exec('ALTER TABLE dms ADD COLUMN deleted INTEGER DEFAULT 0'); }
 const _insDm = db.prepare('INSERT INTO dms (from_id, to_id, body, created_at) VALUES (?, ?, ?, ?)');
 export function sendDm(fromId, toId, body) {
   const text = String(body || '').replace(/[<>]/g, '').slice(0, 1000).trim();
@@ -293,13 +294,13 @@ export function sendDm(fromId, toId, body) {
   return { id: info.lastInsertRowid, fromId, toId, body: text, createdAt: now() };
 }
 const _thread = db.prepare(`
-  SELECT id, from_id AS fromId, to_id AS toId, body, created_at AS createdAt, read_at AS readAt
+  SELECT id, from_id AS fromId, to_id AS toId, body, created_at AS createdAt, read_at AS readAt, deleted
   FROM dms WHERE (from_id = @a AND to_id = @b) OR (from_id = @b AND to_id = @a)
   ORDER BY id DESC LIMIT @limit
 `);
 export function dmThread(a, b, limit = 50) { return _thread.all({ a, b, limit }).reverse(); }
 const _markRead = db.prepare('UPDATE dms SET read_at = ? WHERE to_id = ? AND from_id = ? AND read_at IS NULL');
-export function markDmRead(meId, otherId) { _markRead.run(now(), meId, otherId); }
+export function markDmRead(meId, otherId) { const info = _markRead.run(now(), meId, otherId); return info.changes; }
 const _unreadByFrom = db.prepare('SELECT from_id AS fromId, COUNT(*) AS n FROM dms WHERE to_id = ? AND read_at IS NULL GROUP BY from_id');
 export function unreadCounts(meId) { const out = {}; for (const r of _unreadByFrom.all(meId)) out[r.fromId] = r.n; return out; }
 export function unreadTotal(meId) { return db.prepare('SELECT COUNT(*) n FROM dms WHERE to_id = ? AND read_at IS NULL').get(meId).n; }
@@ -356,5 +357,46 @@ export function crushState(meId, otherId) {
   const mutual = iSet && hasCrush(otherId, meId);
   return { iSet, mutual };
 }
+
+/* ---------------- Surnoms d'amis + dernière connexion ---------------- */
+db.exec(`CREATE TABLE IF NOT EXISTS nicknames (owner_id INTEGER NOT NULL, friend_id INTEGER NOT NULL, nick TEXT, PRIMARY KEY (owner_id, friend_id));`);
+// colonne last_seen sur users
+{ const has = db.prepare("SELECT 1 FROM pragma_table_info('users') WHERE name = 'last_seen'").get(); if (!has) db.exec('ALTER TABLE users ADD COLUMN last_seen INTEGER'); }
+const _setNick = db.prepare('INSERT INTO nicknames (owner_id, friend_id, nick) VALUES (?, ?, ?) ON CONFLICT(owner_id, friend_id) DO UPDATE SET nick = excluded.nick');
+const _delNick = db.prepare('DELETE FROM nicknames WHERE owner_id = ? AND friend_id = ?');
+export function setNickname(ownerId, friendId, nick) {
+  const n = String(nick || '').replace(/[<>]/g, '').slice(0, 24).trim();
+  if (n) _setNick.run(ownerId, friendId, n); else _delNick.run(ownerId, friendId);
+}
+const _nicksOf = db.prepare('SELECT friend_id, nick FROM nicknames WHERE owner_id = ?');
+export function nicknamesOf(ownerId) { const m = {}; for (const r of _nicksOf.all(ownerId)) m[r.friend_id] = r.nick; return m; }
+const _nickOne = db.prepare('SELECT nick FROM nicknames WHERE owner_id = ? AND friend_id = ?');
+export function nicknameOf(ownerId, friendId) { return _nickOne.get(ownerId, friendId)?.nick || null; }
+const _touchSeen = db.prepare('UPDATE users SET last_seen = ? WHERE id = ?');
+export function touchLastSeen(userId) { _touchSeen.run(now(), userId); }
+const _lastSeen = db.prepare('SELECT last_seen FROM users WHERE id = ?');
+export function lastSeenOf(userId) { return _lastSeen.get(userId)?.last_seen || null; }
+
+/* ---------------- DM : suppression + accusés de lecture ---------------- */
+const _getDm = db.prepare('SELECT * FROM dms WHERE id = ?');
+export function deleteDm(meId, msgId) {
+  const row = _getDm.get(msgId);
+  if (!row || row.from_id !== meId) return false; // on ne supprime que ses propres messages
+  db.prepare('UPDATE dms SET body = ?, deleted = 1 WHERE id = ?').run('', msgId);
+  return true;
+}
+export function lastReadOfThread(meId, otherId) {
+  // date de lecture la plus récente de MES messages par l'autre
+  const r = db.prepare('SELECT MAX(read_at) m FROM dms WHERE from_id = ? AND to_id = ? AND read_at IS NOT NULL').get(meId, otherId);
+  return r?.m || null;
+}
+
+/* ---------------- Jeux favoris ---------------- */
+db.exec(`CREATE TABLE IF NOT EXISTS game_favorites (user_id INTEGER NOT NULL, game_id TEXT NOT NULL, PRIMARY KEY (user_id, game_id));`);
+const _addGameFav = db.prepare('INSERT OR IGNORE INTO game_favorites (user_id, game_id) VALUES (?, ?)');
+const _delGameFav = db.prepare('DELETE FROM game_favorites WHERE user_id = ? AND game_id = ?');
+const _listGameFav = db.prepare('SELECT game_id FROM game_favorites WHERE user_id = ?');
+export function setGameFavorite(userId, gameId, on) { const g = String(gameId).slice(0, 32); if (on) _addGameFav.run(userId, g); else _delGameFav.run(userId, g); }
+export function listGameFavorites(userId) { return _listGameFav.all(userId).map(r => r.game_id); }
 
 export default db;

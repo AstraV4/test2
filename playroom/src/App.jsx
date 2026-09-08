@@ -17,12 +17,14 @@ import Friends from './pages/Friends.jsx';
 import Messages from './pages/Messages.jsx';
 import PublicProfile from './pages/PublicProfile.jsx';
 import { FriendsProvider } from './context/FriendsContext.jsx';
+import { GameFavsProvider } from './context/GameFavsContext.jsx';
 
 export default function App() {
   const loc = useLocation();
   // Le salon prend tout l'écran (pas de footer encombrant)
   return (
     <FriendsProvider>
+    <GameFavsProvider>
     <div className="app-bg min-h-screen flex flex-col">
       <Background />
       <Header />
@@ -46,6 +48,7 @@ export default function App() {
       {!loc.pathname.startsWith('/salon/') && <Footer />}
       <AuthModal />
     </div>
+    </GameFavsProvider>
     </FriendsProvider>
   );
 }

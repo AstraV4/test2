@@ -17,6 +17,8 @@ import {
   sendDm, dmThread, markDmRead, unreadCounts, unreadTotal, updateProfile,
   setFavorite, listFavoriteIds, duoStreak,
   setCrush, isMutualCrush, crushState,
+  setNickname, nicknamesOf, nicknameOf, touchLastSeen, lastSeenOf, deleteDm, lastReadOfThread,
+  setGameFavorite, listGameFavorites,
 } from './db.js';
 import { COOKIE, setAuthCookie, clearAuthCookie, userIdFromReq, requireAuth, verifyToken } from './auth.js';
 import { RoomManager } from './rooms.js';
@@ -94,6 +96,13 @@ app.post('/api/me/profile-update', requireAuth, rateLimit(30, 60000), (req, res)
     displayName: req.body?.displayName, bio: req.body?.bio, accent: req.body?.accent,
   });
   res.json({ user: publicUser(user) });
+});
+
+app.get('/api/me/games/favorites', requireAuth, (req, res) => res.json({ favorites: listGameFavorites(req.userId) }));
+app.post('/api/me/games/favorite', requireAuth, (req, res) => {
+  const gameId = String(req.body?.gameId || ''); if (!gameId) return res.status(400).json({ error: 'bad_request' });
+  setGameFavorite(req.userId, gameId, !!req.body?.on);
+  res.json({ favorites: listGameFavorites(req.userId) });
 });
 
 /* ============================ PROFIL / STATS ============================ */
@@ -231,12 +240,21 @@ app.post('/api/anagram/check', (req, res) => {
 /* ============================ AMIS ============================ */
 function friendsPayload(userId) {
   const favSet = new Set(listFavoriteIds(userId));
-  const friends = listFriends(userId).map(f => ({ ...f, ...presence.statusOf(f.id), favorite: favSet.has(f.id) }));
-  // favoris d'abord, puis en ligne, puis par niveau
+  const nicks = nicknamesOf(userId);
+  const friends = listFriends(userId).map(f => {
+    const st = presence.statusOf(f.id);
+    return { ...f, ...st, favorite: favSet.has(f.id), nickname: nicks[f.id] || null, lastSeen: st.online ? null : lastSeenOf(f.id) };
+  });
   friends.sort((a, b) => (b.favorite - a.favorite) || (b.online - a.online) || (b.level - a.level));
   return { friends, incoming: listIncoming(userId), outgoing: listOutgoing(userId) };
 }
 app.get('/api/friends', requireAuth, (req, res) => res.json(friendsPayload(req.userId)));
+
+app.post('/api/friends/nickname', requireAuth, (req, res) => {
+  const otherId = parseInt(req.body?.userId, 10); if (!otherId) return res.status(400).json({ error: 'bad_request' });
+  setNickname(req.userId, otherId, req.body?.nick || '');
+  res.json({ ok: true, nickname: nicknameOf(req.userId, otherId) });
+});
 
 app.post('/api/friends/favorite', requireAuth, (req, res) => {
   const otherId = parseInt(req.body?.userId, 10); if (!otherId) return res.status(400).json({ error: 'bad_request' });
@@ -338,8 +356,9 @@ app.get('/api/dm/unread', requireAuth, (req, res) => res.json({ counts: unreadCo
 app.get('/api/dm/:userId', requireAuth, (req, res) => {
   const other = parseInt(req.params.userId, 10);
   if (!areFriends(req.userId, other)) return res.status(403).json({ error: 'not_friends' });
-  markDmRead(req.userId, other);
-  res.json({ messages: dmThread(req.userId, other, 60), other: publicUser(findUserById(other)) });
+  const changed = markDmRead(req.userId, other);
+  if (changed > 0) presence.emitToUser(other, 'dm:read', { by: req.userId, at: Date.now() }); // l'autre voit "Vu"
+  res.json({ messages: dmThread(req.userId, other, 60), other: publicUser(findUserById(other)), lastRead: lastReadOfThread(req.userId, other) });
 });
 app.post('/api/dm/:userId', requireAuth, rateLimit(120, 60000), (req, res) => {
   const other = parseInt(req.params.userId, 10);
@@ -348,9 +367,15 @@ app.post('/api/dm/:userId', requireAuth, rateLimit(120, 60000), (req, res) => {
   const msg = sendDm(req.userId, other, req.body?.body);
   if (!msg) return res.status(400).json({ error: 'empty' });
   const from = findUserById(req.userId);
-  // Notifier le destinataire en temps réel
   presence.emitToUser(other, 'dm:new', { ...msg, fromName: from.username, fromAvatar: from.avatar });
   res.json({ message: msg });
+});
+app.post('/api/dm/:userId/delete', requireAuth, (req, res) => {
+  const other = parseInt(req.params.userId, 10);
+  const msgId = parseInt(req.body?.messageId, 10);
+  if (!deleteDm(req.userId, msgId)) return res.status(403).json({ error: 'cannot_delete' });
+  presence.emitToUser(other, 'dm:deleted', { messageId: msgId });
+  res.json({ ok: true });
 });
 
 /* ============================ MODÉRATION ============================ */
@@ -462,7 +487,7 @@ io.on('connection', (socket) => {
     socket.emit('invite:sent', { toUserId: toId });
   });
 
-  socket.on('disconnect', () => { rooms.handleDisconnect(socket); presence.remove(socket.id); });
+  socket.on('disconnect', () => { rooms.handleDisconnect(socket); if (socket.data.userId) { try { touchLastSeen(socket.data.userId); } catch { /* ignore */ } } presence.remove(socket.id); });
 });
 
 server.listen(PORT, () => console.log(`PLAYROOM prêt sur :${PORT}`));

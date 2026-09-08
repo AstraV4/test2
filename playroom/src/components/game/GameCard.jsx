@@ -1,7 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Clock, Gauge, Play, BarChart3 } from 'lucide-react';
+import { Users, Clock, Gauge, Play, BarChart3, Star } from 'lucide-react';
 import { Tag } from '../ui/index.jsx';
+import { useGameFavs } from '../../context/GameFavsContext.jsx';
 
 // Décor d'ambiance propre à chaque jeu (rendu léger en SVG/CSS).
 function Ambiance({ ambiance, a, b }) {
@@ -41,6 +42,8 @@ function Ambiance({ ambiance, a, b }) {
 export default function GameCard({ game }) {
   const Icon = game.icon;
   const [a, b] = game.color;
+  const { has, toggle, loggedIn } = useGameFavs();
+  const fav = has(game.id);
   return (
     <div className="card-glow rounded-2xl overflow-hidden flex flex-col h-full group">
       <Link to={`/jeux/${game.slug}`} className="block">
@@ -53,6 +56,12 @@ export default function GameCard({ game }) {
             {game.isNew && <Tag color="accent">Nouveau</Tag>}
             <Tag color={game.mode === 'multi' ? 'warning' : 'brand'}>{game.mode === 'multi' ? 'Multi' : 'Solo'}</Tag>
           </div>
+          {loggedIn && (
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggle(game.id); }} title={fav ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+              className={`absolute top-2.5 right-2.5 h-8 w-8 rounded-full flex items-center justify-center backdrop-blur transition-all ${fav ? 'bg-warning/20 text-warning' : 'bg-black/20 text-white/70 hover:text-warning'}`}>
+              <Star className={`h-4 w-4 ${fav ? 'fill-warning' : ''}`} />
+            </button>
+          )}
           <div className="absolute bottom-3 left-3 flex h-12 w-12 items-center justify-center rounded-xl text-white shadow-lg group-hover:scale-110 transition-transform" style={{ background: `linear-gradient(135deg, ${a}, ${b})` }}>
             <Icon className="h-6 w-6" />
           </div>

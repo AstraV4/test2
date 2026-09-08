@@ -1,11 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { UserPlus, Users2, Search, Check, X, UserMinus, Gamepad2, Clock, Lock, Ban, Flag, Star } from 'lucide-react';
+import { UserPlus, Users2, Search, Check, X, UserMinus, Gamepad2, Clock, Lock, Ban, Flag, Star, Pencil } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useFriends, activityLabel } from '../context/FriendsContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { api } from '../lib/api.js';
 import { Card, Button, Avatar, Tag, EmptyState } from '../components/ui/index.jsx';
 import { useNavigate } from 'react-router-dom';
+
+function agoShort(ts) {
+  if (!ts) return '';
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return 'à l\u2019instant';
+  const m = Math.floor(s / 60); if (m < 60) return `il y a ${m} min`;
+  const h = Math.floor(m / 60); if (h < 24) return `il y a ${h} h`;
+  const d = Math.floor(h / 24); if (d < 7) return `il y a ${d} j`;
+  return new Date(ts).toLocaleDateString('fr-FR');
+}
 
 export default function Friends() {
   const { user, openAuth } = useAuth();
@@ -109,9 +119,10 @@ export default function Friends() {
                     <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-surface ${st.dot}`} />
                   </button>
                   <button onClick={() => nav(`/u/${f.id}`)} className="flex-1 min-w-0 text-left">
-                    <div className="text-sm font-semibold truncate hover:text-brand transition-colors">{f.displayName || f.username} <span className="text-xs text-muted">· Nv.{f.level}</span></div>
-                    <div className={`text-xs ${st.color}`}>{st.text}</div>
+                    <div className="text-sm font-semibold truncate hover:text-brand transition-colors">{friends.nameOf(f)} <span className="text-xs text-muted">· Nv.{f.level}</span></div>
+                    <div className={`text-xs ${f.online ? st.color : 'text-muted'}`}>{f.online ? st.text : (f.lastSeen ? `vu ${agoShort(f.lastSeen)}` : 'hors ligne')}</div>
                   </button>
+                  <button onClick={async () => { const n = window.prompt(`Surnom pour ${f.displayName || f.username} :`, f.nickname || ''); if (n !== null) { await friends.setNickname(f.id, n); toast.success('Surnom mis à jour.'); } }} title="Surnom" className="text-muted hover:text-brand p-2"><Pencil className="h-4 w-4" /></button>
                   {st.code && <Button size="sm" variant="outline" onClick={() => { try { sessionStorage.setItem('pr_identity', JSON.stringify({ name: user.username, avatar: user.avatar })); } catch { /* ignore */ } nav(`/salon/${st.code}`); }}><Gamepad2 className="h-4 w-4" /> Rejoindre</Button>}
                   <button onClick={async () => { await friends.report(f.id, 'signalé'); toast.success('Signalement envoyé. Merci.'); }} title="Signaler" className="text-muted hover:text-warning p-2"><Flag className="h-4 w-4" /></button>
                   <button onClick={async () => { if (confirm(`Bloquer ${f.username} ? Vous ne serez plus amis.`)) { await friends.block(f.id); toast.info(`${f.username} bloqué.`); } }} title="Bloquer" className="text-muted hover:text-danger p-2"><Ban className="h-4 w-4" /></button>

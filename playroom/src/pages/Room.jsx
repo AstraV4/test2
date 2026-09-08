@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Copy, Crown, LogOut, Play, Check, X, Settings, UserX, Share2, Wifi, WifiOff, UserPlus2 } from 'lucide-react';
+import { Copy, Crown, LogOut, Play, Check, X, Settings, UserX, Share2, Wifi, WifiOff, UserPlus2, Gamepad2, Users2 } from 'lucide-react';
 import { getSocket } from '../lib/socket.js';
 import { Card, Button, Avatar, Tag, Spinner } from '../components/ui/index.jsx';
 import { useToast } from '../context/ToastContext.jsx';
@@ -86,27 +86,35 @@ export default function Room() {
   const inLobby = room.phase === 'lobby';
 
   return (
-    <div className="py-8 max-w-2xl mx-auto space-y-5">
-      {/* En-tête salon */}
-      <Card className="p-5">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
+    <div className="py-8 max-w-3xl mx-auto space-y-5">
+      {/* En-tête salon premium */}
+      <div className="relative overflow-hidden rounded-3xl gradient-border p-5 md:p-6" style={{ background: 'linear-gradient(135deg, rgb(var(--brand)/0.14), rgb(var(--brand-2)/0.08))' }}>
+        <div className="absolute -right-8 -top-10 opacity-10 pointer-events-none"><Gamepad2 className="h-44 w-44 text-brand" /></div>
+        <div className="relative flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <div className="text-xs text-muted mb-1 flex items-center gap-2">
-              Salon {connected ? <span className="text-success inline-flex items-center gap-1"><Wifi className="h-3 w-3" /> en ligne</span> : <span className="text-danger inline-flex items-center gap-1"><WifiOff className="h-3 w-3" /> reconnexion…</span>}
+            <div className="text-[11px] uppercase tracking-wide text-muted mb-1 flex items-center gap-2">
+              Salon privé · {connected ? <span className="text-success inline-flex items-center gap-1"><span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-60" /><span className="relative inline-flex rounded-full h-2 w-2 bg-success" /></span> connecté</span> : <span className="text-danger inline-flex items-center gap-1"><WifiOff className="h-3 w-3" /> reconnexion…</span>}
             </div>
-            <CodeDisplay code={room.code} />
+            <button onClick={() => { navigator.clipboard?.writeText(room.code); toast.success('Code copié !'); }} className="group inline-flex items-center gap-3">
+              <span className="font-display font-bold text-4xl md:text-5xl tracking-[0.32em] gradient-text">{room.code}</span>
+              <span className="rounded-lg bg-surface-2 p-2 text-muted group-hover:text-text transition-colors"><Copy className="h-4 w-4" /></span>
+            </button>
+            <div className="flex items-center gap-1.5 mt-2">
+              {room.players.slice(0, 8).map(p => <div key={p.id} className="ring-2 ring-surface rounded-full"><Avatar name={p.avatar} label={p.name} size={26} /></div>)}
+              <span className="text-xs text-muted ml-1">{room.players.filter(p => p.connected).length} en ligne</span>
+            </div>
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" onClick={() => { const url = `${location.origin}/salon/${room.code}`; navigator.clipboard?.writeText(url); toast.success('Lien copié !'); }}><Share2 className="h-4 w-4" /> Partager</Button>
             <Button variant="outline" size="sm" onClick={() => nav('/multijoueur')}><LogOut className="h-4 w-4" /> Quitter</Button>
           </div>
         </div>
-      </Card>
+      </div>
 
       {/* Joueurs */}
       <Card className="p-5">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold">Joueurs <span className="text-muted">({room.players.length}/12)</span></h2>
+          <h2 className="font-semibold inline-flex items-center gap-2"><Users2 className="h-4 w-4 text-brand" /> Joueurs <span className="text-muted font-normal">({room.players.length}/12)</span></h2>
           {room.phase !== 'lobby' && (room.gameType === 'draw'
             ? (room.draw && <Tag color="warning">Tour {room.draw.turn}/{room.draw.totalTurns}</Tag>)
             : room.gameType === 'party'
@@ -115,20 +123,22 @@ export default function Room() {
             ? (room.bluff && <Tag color="warning">Manche {room.bluff.turn}/{room.bluff.total}</Tag>)
             : room.gameType === 'caption'
             ? (room.caption && <Tag color="warning">Manche {room.caption.turn}/{room.caption.total}</Tag>)
-            : DUEL_TYPES.includes(room.gameType)
+            : DUEL_TYPES.includes(room.gameType) || ['wyrduel', 'nbduel', 'wordduel', 'coupleduo'].includes(room.gameType)
             ? null
             : <Tag color="warning">Manche {room.round}/{room.settings.rounds}</Tag>)}
         </div>
         <div className="grid sm:grid-cols-2 gap-2">
           {room.players.map(p => (
-            <div key={p.id} className={`flex items-center gap-3 rounded-xl px-3 py-2.5 ${p.connected ? 'bg-surface-2' : 'bg-surface-2/50 opacity-60'}`}>
-              <Avatar name={p.avatar} label={p.name} size={36} />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold truncate flex items-center gap-1">{p.name} {p.isHost && <Crown className="h-3.5 w-3.5 text-warning" />}</div>
-                <div className="text-xs text-muted">{!p.connected ? 'déconnecté' : inLobby ? (p.ready ? 'prêt' : 'en attente') : 'en jeu'}</div>
+            <div key={p.id} className={`flex items-center gap-3 rounded-xl px-3 py-2.5 border transition-colors ${p.connected ? 'bg-surface-2 border-transparent' : 'bg-surface-2/40 border-transparent opacity-60'} ${inLobby && p.ready ? 'border-success/40' : ''}`}>
+              <div className="relative">
+                <Avatar name={p.avatar} label={p.name} size={38} />
+                <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-surface ${p.connected ? 'bg-success' : 'bg-muted/50'}`} />
               </div>
-              {inLobby && p.ready && <Check className="h-4 w-4 text-success" />}
-              {inLobby && isHost && p.id !== playerId && <button onClick={() => getSocket().emit('room:kick', { playerId: p.id })} title="Expulser" className="text-muted hover:text-danger"><UserX className="h-4 w-4" /></button>}
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold truncate flex items-center gap-1">{p.name} {p.isHost && <Crown className="h-3.5 w-3.5 text-warning" />} {p.id === playerId && <span className="text-[10px] text-muted">(toi)</span>}</div>
+                <div className={`text-xs ${inLobby && p.ready ? 'text-success' : 'text-muted'}`}>{!p.connected ? 'déconnecté' : inLobby ? (p.ready ? '✓ prêt' : 'en attente…') : 'en jeu'}</div>
+              </div>
+              {inLobby && isHost && p.id !== playerId && <button onClick={() => getSocket().emit('room:kick', { playerId: p.id })} title="Expulser" className="text-muted hover:text-danger p-1"><UserX className="h-4 w-4" /></button>}
             </div>
           ))}
         </div>
