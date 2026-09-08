@@ -1,28 +1,33 @@
 import React, { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Gamepad2, Home, Grid3x3, Users2, Trophy, Search, Sun, Moon, Volume2, VolumeX, Menu, X, LogOut, User as UserIcon, Flame } from 'lucide-react';
+import { Gamepad2, Home, Grid3x3, Users2, Trophy, Search, Sun, Moon, Volume2, VolumeX, Menu, X, LogOut, User as UserIcon, Flame, UserPlus } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useTheme } from '../../context/ThemeContext.jsx';
+import { useFriends } from '../../context/FriendsContext.jsx';
 import { Avatar, Button } from '../ui/index.jsx';
 import { sound } from '../../lib/sound.js';
 
 const NAV = [
   { to: '/', label: 'Accueil', icon: Home, end: true },
   { to: '/jeux', label: 'Jeux', icon: Grid3x3 },
-  { to: '/defi', label: 'Défi du jour', icon: Flame },
+  { to: '/defi', label: 'Défi', icon: Flame },
   { to: '/multijoueur', label: 'Multijoueur', icon: Users2 },
+  { to: '/amis', label: 'Amis', icon: UserPlus },
   { to: '/classements', label: 'Classements', icon: Trophy },
 ];
 
 export default function Header() {
   const { user, logout, openAuth } = useAuth();
   const { theme, toggle } = useTheme();
+  const friends = useFriends();
+  const incoming = friends?.incoming?.length || 0;
   const [open, setOpen] = useState(false);
   const [muted, setMuted] = useState(!sound.enabled);
   const nav = useNavigate();
 
   const toggleSound = () => { const en = sound.toggle(); setMuted(!en); if (en) sound.play('ok'); };
-  const linkClass = ({ isActive }) => `px-3 py-2 rounded-xl text-sm font-medium transition-colors inline-flex items-center gap-2 ${isActive ? 'bg-surface-2 text-text' : 'text-muted hover:text-text hover:bg-surface-2/60'}`;
+  const linkClass = ({ isActive }) => `px-3 py-2 rounded-xl text-sm font-medium transition-colors inline-flex items-center gap-2 relative ${isActive ? 'bg-surface-2 text-text' : 'text-muted hover:text-text hover:bg-surface-2/60'}`;
+  const badge = (to) => (to === '/amis' && incoming > 0) ? <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-danger text-white text-[10px] font-bold flex items-center justify-center">{incoming}</span> : null;
 
   return (
     <header className="sticky top-0 z-50 glass border-b border-border">
@@ -33,7 +38,7 @@ export default function Header() {
             <span>PLAY<span className="gradient-text">ROOM</span></span>
           </Link>
           <nav className="hidden md:flex items-center gap-1">
-            {NAV.map(n => <NavLink key={n.to} to={n.to} end={n.end} className={linkClass}><n.icon className="h-4 w-4" />{n.label}</NavLink>)}
+            {NAV.map(n => <NavLink key={n.to} to={n.to} end={n.end} className={linkClass}><n.icon className="h-4 w-4" />{n.label}{badge(n.to)}</NavLink>)}
           </nav>
         </div>
 
@@ -60,7 +65,7 @@ export default function Header() {
       {open && (
         <div className="md:hidden border-t border-border bg-surface animate-slideUp">
           <nav className="px-4 py-3 flex flex-col gap-1">
-            {NAV.map(n => <NavLink key={n.to} to={n.to} end={n.end} onClick={() => setOpen(false)} className={linkClass}><n.icon className="h-4 w-4" />{n.label}</NavLink>)}
+            {NAV.map(n => <NavLink key={n.to} to={n.to} end={n.end} onClick={() => setOpen(false)} className={linkClass}><n.icon className="h-4 w-4" />{n.label}{badge(n.to)}</NavLink>)}
             <div className="h-px bg-border my-2" />
             {user ? (
               <>

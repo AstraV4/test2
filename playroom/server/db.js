@@ -142,4 +142,117 @@ export function grantAchievement(userId, code) {
   return true;
 }
 
+/* ---------------- Amis ---------------- */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS friendships (
+    u_lo INTEGER NOT NULL,
+    u_hi INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (u_lo, u_hi)
+  );
+  CREATE TABLE IF NOT EXISTS friend_requests (
+    from_id INTEGER NOT NULL,
+    to_id   INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (from_id, to_id)
+  );
+`);
+const lohi = (a, b) => (a < b ? [a, b] : [b, a]);
+const _areFriends = db.prepare('SELECT 1 FROM friendships WHERE u_lo = ? AND u_hi = ?');
+export function areFriends(a, b) { const [lo, hi] = lohi(a, b); return !!_areFriends.get(lo, hi); }
+const _insFriend = db.prepare('INSERT OR IGNORE INTO friendships (u_lo, u_hi, created_at) VALUES (?, ?, ?)');
+const _delReqPair = db.prepare('DELETE FROM friend_requests WHERE (from_id = ? AND to_id = ?) OR (from_id = ? AND to_id = ?)');
+export function addFriend(a, b) { const [lo, hi] = lohi(a, b); _insFriend.run(lo, hi, now()); _delReqPair.run(a, b, b, a); }
+const _delFriend = db.prepare('DELETE FROM friendships WHERE u_lo = ? AND u_hi = ?');
+export function removeFriend(a, b) { const [lo, hi] = lohi(a, b); _delFriend.run(lo, hi); }
+const _friendIds = db.prepare('SELECT u_lo, u_hi FROM friendships WHERE u_lo = ? OR u_hi = ?');
+export function listFriendIds(userId) { return _friendIds.all(userId, userId).map(r => (r.u_lo === userId ? r.u_hi : r.u_lo)); }
+export function listFriends(userId) {
+  return listFriendIds(userId).map(id => { const u = findUserById(id); return u ? publicUser(u) : null; }).filter(Boolean);
+}
+const _insReq = db.prepare('INSERT OR IGNORE INTO friend_requests (from_id, to_id, created_at) VALUES (?, ?, ?)');
+const _getReq = db.prepare('SELECT 1 FROM friend_requests WHERE from_id = ? AND to_id = ?');
+export function sendRequest(fromId, toId) {
+  if (fromId === toId) return 'self';
+  if (areFriends(fromId, toId)) return 'already';
+  if (_getReq.get(toId, fromId)) { addFriend(fromId, toId); return 'accepted'; } // demande réciproque -> amis
+  _insReq.run(fromId, toId, now());
+  return 'sent';
+}
+export function acceptRequest(meId, fromId) { if (_getReq.get(fromId, meId)) { addFriend(meId, fromId); return true; } return false; }
+const _delReq = db.prepare('DELETE FROM friend_requests WHERE from_id = ? AND to_id = ?');
+export function declineRequest(meId, fromId) { _delReq.run(fromId, meId); }
+export function cancelRequest(meId, toId) { _delReq.run(meId, toId); }
+const _incoming = db.prepare('SELECT from_id, created_at FROM friend_requests WHERE to_id = ? ORDER BY created_at DESC');
+const _outgoing = db.prepare('SELECT to_id, created_at FROM friend_requests WHERE from_id = ? ORDER BY created_at DESC');
+export function listIncoming(userId) { return _incoming.all(userId).map(r => { const u = findUserById(r.from_id); return u ? publicUser(u) : null; }).filter(Boolean); }
+export function listOutgoing(userId) { return _outgoing.all(userId).map(r => { const u = findUserById(r.to_id); return u ? publicUser(u) : null; }).filter(Boolean); }
+const _search = db.prepare("SELECT id FROM users WHERE username LIKE ? AND id != ? ORDER BY username LIMIT 10");
+export function searchUsers(q, excludeId) {
+  return _search.all('%' + String(q).replace(/[%_]/g, '') + '%', excludeId).map(r => publicUser(findUserById(r.id)));
+}
+
+/* ---------------- Modération (blocage / signalement) ---------------- */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS blocks (
+    blocker_id INTEGER NOT NULL,
+    blocked_id INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (blocker_id, blocked_id)
+  );
+  CREATE TABLE IF NOT EXISTS reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    reporter_id INTEGER NOT NULL,
+    reported_id INTEGER NOT NULL,
+    reason TEXT,
+    created_at INTEGER NOT NULL
+  );
+`);
+const _block = db.prepare('INSERT OR IGNORE INTO blocks (blocker_id, blocked_id, created_at) VALUES (?, ?, ?)');
+const _unblock = db.prepare('DELETE FROM blocks WHERE blocker_id = ? AND blocked_id = ?');
+const _isBlocked = db.prepare('SELECT 1 FROM blocks WHERE blocker_id = ? AND blocked_id = ?');
+export function blockUser(a, b) { _block.run(a, b, now()); removeFriend(a, b); _delReqPair.run(a, b, b, a); }
+export function unblockUser(a, b) { _unblock.run(a, b); }
+export function isBlocked(a, b) { return !!_isBlocked.get(a, b); }                 // a a bloqué b
+export function blockedBetween(a, b) { return isBlocked(a, b) || isBlocked(b, a); } // dans un sens ou l'autre
+const _blockedIds = db.prepare('SELECT blocked_id FROM blocks WHERE blocker_id = ?');
+export function listBlockedIds(userId) { return _blockedIds.all(userId).map(r => r.blocked_id); }
+export function listBlocked(userId) { return listBlockedIds(userId).map(id => { const u = findUserById(id); return u ? publicUser(u) : null; }).filter(Boolean); }
+const _addReport = db.prepare('INSERT INTO reports (reporter_id, reported_id, reason, created_at) VALUES (?, ?, ?, ?)');
+export function addReport(reporterId, reportedId, reason) { _addReport.run(reporterId, reportedId, String(reason || '').slice(0, 300), now()); }
+
+/* ---------------- Saisons ---------------- */
+// Saisons de 4 semaines, calculées à partir d'une date de référence (déterministe).
+const SEASON_EPOCH = Date.UTC(2026, 0, 5); // lundi 5 janvier 2026
+const SEASON_MS = 28 * 24 * 60 * 60 * 1000;
+export function seasonInfo(ts = now()) {
+  const n = Math.max(0, Math.floor((ts - SEASON_EPOCH) / SEASON_MS));
+  const startsAt = SEASON_EPOCH + n * SEASON_MS;
+  return { id: n + 1, name: `Saison ${n + 1}`, startsAt, endsAt: startsAt + SEASON_MS };
+}
+db.exec(`
+  CREATE TABLE IF NOT EXISTS season_scores (
+    season_id INTEGER NOT NULL,
+    user_id   INTEGER NOT NULL,
+    xp        INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (season_id, user_id)
+  );
+`);
+const _addSeasonXp = db.prepare(`
+  INSERT INTO season_scores (season_id, user_id, xp) VALUES (@s, @u, @x)
+  ON CONFLICT(season_id, user_id) DO UPDATE SET xp = xp + @x
+`);
+export function addSeasonXp(userId, amount) { _addSeasonXp.run({ s: seasonInfo().id, u: userId, x: Math.max(0, Math.round(amount)) }); }
+const _seasonXp = db.prepare('SELECT xp FROM season_scores WHERE season_id = ? AND user_id = ?');
+export function seasonXpOf(userId) { return _seasonXp.get(seasonInfo().id, userId)?.xp || 0; }
+export function seasonLeaderboard(limit = 50) {
+  const sid = seasonInfo().id;
+  const rows = db.prepare(`
+    SELECT u.id, u.username, u.avatar, u.xp AS totalXp, ss.xp AS sxp
+    FROM season_scores ss JOIN users u ON u.id = ss.user_id
+    WHERE ss.season_id = ? ORDER BY ss.xp DESC LIMIT ?
+  `).all(sid, limit);
+  return rows.map((r, i) => ({ rank: i + 1, userId: r.id, username: r.username, avatar: r.avatar, level: levelFromXp(r.totalXp).level, score: r.sxp }));
+}
+
 export default db;

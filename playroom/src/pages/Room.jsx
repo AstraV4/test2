@@ -1,12 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Copy, Crown, LogOut, Play, Check, X, Settings, UserX, Share2, Wifi, WifiOff } from 'lucide-react';
+import { Copy, Crown, LogOut, Play, Check, X, Settings, UserX, Share2, Wifi, WifiOff, UserPlus2 } from 'lucide-react';
 import { getSocket } from '../lib/socket.js';
 import { Card, Button, Avatar, Tag, Spinner } from '../components/ui/index.jsx';
 import { useToast } from '../context/ToastContext.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
+import { useFriends } from '../context/FriendsContext.jsx';
 import Imposter from '../games/imposter/Imposter.jsx';
 import DrawGuess from '../games/draw/DrawGuess.jsx';
 import Party from '../games/party/Party.jsx';
+import Bluff from '../games/bluff/Bluff.jsx';
+import Caption from '../games/caption/Caption.jsx';
 import Chat from '../components/Chat.jsx';
 import { sound } from '../lib/sound.js';
 
@@ -100,6 +104,10 @@ export default function Room() {
             ? (room.draw && <Tag color="warning">Tour {room.draw.turn}/{room.draw.totalTurns}</Tag>)
             : room.gameType === 'party'
             ? (room.party && <Tag color="warning">Manche {room.party.turn}/{room.party.total}</Tag>)
+            : room.gameType === 'bluff'
+            ? (room.bluff && <Tag color="warning">Manche {room.bluff.turn}/{room.bluff.total}</Tag>)
+            : room.gameType === 'caption'
+            ? (room.caption && <Tag color="warning">Manche {room.caption.turn}/{room.caption.total}</Tag>)
             : <Tag color="warning">Manche {room.round}/{room.settings.rounds}</Tag>)}
         </div>
         <div className="grid sm:grid-cols-2 gap-2">
@@ -121,6 +129,7 @@ export default function Room() {
       {inLobby ? (
         <>
           <LobbyControls room={room} me={me} isHost={isHost} />
+          <InviteFriends />
           <Chat socket={getSocket()} room={room} playerId={playerId} compact />
         </>
       ) : room.gameType === 'draw' ? (
@@ -134,6 +143,20 @@ export default function Room() {
         <div className="grid lg:grid-cols-3 gap-4">
           <Card className="p-5 lg:col-span-2">
             <Party socket={getSocket()} room={room} playerId={playerId} endsAt={endsAt} />
+          </Card>
+          <Chat socket={getSocket()} room={room} playerId={playerId} />
+        </div>
+      ) : room.gameType === 'bluff' ? (
+        <div className="grid lg:grid-cols-3 gap-4">
+          <Card className="p-5 lg:col-span-2">
+            <Bluff socket={getSocket()} room={room} playerId={playerId} endsAt={endsAt} />
+          </Card>
+          <Chat socket={getSocket()} room={room} playerId={playerId} />
+        </div>
+      ) : room.gameType === 'caption' ? (
+        <div className="grid lg:grid-cols-3 gap-4">
+          <Card className="p-5 lg:col-span-2">
+            <Caption socket={getSocket()} room={room} playerId={playerId} endsAt={endsAt} />
           </Card>
           <Chat socket={getSocket()} room={room} playerId={playerId} />
         </div>
@@ -156,19 +179,20 @@ function LobbyControls({ room, me, isHost }) {
   const maxImp = Math.max(1, Math.floor(room.players.length / 3));
   const isDraw = room.gameType === 'draw';
   const isParty = room.gameType === 'party';
+  const isBluff = room.gameType === 'bluff';
+  const isCaption = room.gameType === 'caption';
 
   return (
     <Card className="p-5 space-y-4">
       {/* Choix du jeu */}
       <div>
         <h3 className="font-semibold mb-2 text-sm text-muted">Jeu</h3>
-        <div className="grid grid-cols-3 gap-2">
-          {[{ id: 'imposter', emo: '🕵️', name: 'Imposteur', sub: 'Déduction' }, { id: 'draw', emo: '🎨', name: 'Draw & Guess', sub: 'Dessin' }, { id: 'party', emo: '🎉', name: 'Party', sub: 'À voter' }].map(g => (
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          {[{ id: 'imposter', emo: '🕵️', name: 'Imposteur' }, { id: 'draw', emo: '🎨', name: 'Draw & Guess' }, { id: 'party', emo: '🎉', name: 'Party' }, { id: 'bluff', emo: '🪶', name: 'Bluff' }, { id: 'caption', emo: '💬', name: 'Caption' }].map(g => (
             <button key={g.id} disabled={!isHost} onClick={() => socket.emit('room:setGame', { gameType: g.id })}
-              className={`rounded-xl border p-3 text-left transition-all ${room.gameType === g.id ? 'border-brand bg-brand/10' : 'border-border bg-surface-2 hover:border-brand/40'} ${!isHost ? 'opacity-70 cursor-default' : ''}`}>
+              className={`rounded-xl border p-2.5 text-center transition-all ${room.gameType === g.id ? 'border-brand bg-brand/10' : 'border-border bg-surface-2 hover:border-brand/40'} ${!isHost ? 'opacity-70 cursor-default' : ''}`}>
               <div className="text-xl">{g.emo}</div>
-              <div className="font-semibold text-sm mt-1">{g.name}</div>
-              <div className="text-xs text-muted">{g.sub}</div>
+              <div className="font-semibold text-xs mt-1">{g.name}</div>
             </button>
           ))}
         </div>
@@ -200,6 +224,18 @@ function LobbyControls({ room, me, isHost }) {
               </Setting>
               <div className="flex items-end"><p className="text-xs text-muted">Tu préfères · Le plus susceptible · Hot Take s'enchaînent automatiquement.</p></div>
             </div>
+          ) : isBluff ? (
+            <Setting label="Nombre de manches">
+              <select value={s.bluffRounds} onChange={e => socket.emit('room:settings', { bluffRounds: +e.target.value })} className="w-full max-w-[10rem] rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm">
+                {[3, 4, 5, 6, 8].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </Setting>
+          ) : isCaption ? (
+            <Setting label="Nombre de manches">
+              <select value={s.captionRounds} onChange={e => socket.emit('room:settings', { captionRounds: +e.target.value })} className="w-full max-w-[10rem] rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm">
+                {[3, 4, 5, 6, 8].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </Setting>
           ) : (
             <div className="grid grid-cols-3 gap-3">
               <Setting label="Thème">
@@ -243,6 +279,35 @@ function LobbyControls({ room, me, isHost }) {
 
 function Setting({ label, children }) {
   return <div><div className="text-xs text-muted mb-1">{label}</div>{children}</div>;
+}
+
+// Panneau d'invitation d'amis en ligne (dans le lobby).
+function InviteFriends() {
+  const { user } = useAuth();
+  const friends = useFriends();
+  const toast = useToast();
+  const [invited, setInvited] = useState({});
+  if (!user) return null;
+  const online = (friends?.friends || []).filter(f => f.online);
+  const invite = (f) => { friends.invitePlayer(f.id); setInvited(s => ({ ...s, [f.id]: true })); };
+  return (
+    <Card className="p-5">
+      <h3 className="font-semibold mb-3 inline-flex items-center gap-2 text-sm"><UserPlus2 className="h-4 w-4 text-brand" /> Inviter des amis</h3>
+      {online.length === 0 ? (
+        <p className="text-sm text-muted">Aucun ami en ligne pour le moment. <a href="/amis" className="text-brand hover:underline">Gérer mes amis</a></p>
+      ) : (
+        <div className="space-y-2">
+          {online.map(f => (
+            <div key={f.id} className="flex items-center gap-3 rounded-xl bg-surface-2 px-3 py-2">
+              <div className="relative"><Avatar name={f.avatar} label={f.username} size={30} /><span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-surface bg-success" /></div>
+              <span className="flex-1 text-sm font-medium truncate">{f.username}</span>
+              <Button size="sm" variant={invited[f.id] ? 'ghost' : 'outline'} onClick={() => invite(f)}>{invited[f.id] ? 'Invité ✓' : 'Inviter'}</Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
 }
 
 function CodeDisplay({ code }) {

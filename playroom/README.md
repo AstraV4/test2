@@ -1,6 +1,6 @@
 # 🎮 PLAYROOM
 
-Plateforme de mini-jeux en ligne. 12 jeux : 9 solo (Proximo, Réflexe, Mémoire, Nombre Mystère, Mot Mélangé, Quiz Éclair, Calcul Rapide, Frappe Rapide, Memory Grid) + 3 multijoueur temps réel (Imposteur avec choix du thème, Draw & Guess avec choix du mot + indices, Party : Tu préfères / Le plus susceptible / Hot Take). Chat de salon (anti-spam + désactivation par phase), comptes, XP, niveaux, titres, succès, classements et défi quotidien. Design premium : fond immersif animé, cartes à ambiance, transitions, confettis, podiums.
+Plateforme de mini-jeux en ligne. 14 jeux : 9 solo + 5 multijoueur temps réel (Imposteur avec choix du thème, Draw & Guess avec choix du mot + indices, Party, Bluff, Caption Battle). Chat de salon (anti-spam + désactivation par phase), système d'amis (statut en ligne + invitations), modération (blocage/signalement), Saisons (4 semaines, XP de saison + classement), comptes, XP, niveaux, titres, succès, classements et défi quotidien. Design premium : fond immersif animé, cartes à ambiance, transitions, confettis, podiums.
 
 ## Stack
 - **Front** : React 18 + Vite + Tailwind + React Router + lucide-react + socket.io-client
@@ -35,3 +35,9 @@ npm run dev
 1. Ajoute une entrée dans `src/games/registry.js`.
 2. Crée le composant dans `src/games/<id>/`.
 3. (Optionnel) ajoute son barème d'XP dans `server/index.js` (`XP_TABLE`).
+
+## Système d'amis
+- Ajout d'amis par pseudo (recherche), demandes envoyées/reçues (accepter/refuser).
+- **Statut en ligne** et **activité en temps réel** ("En ligne", "Dans un salon", "Joue à …").
+- **Invitation directe dans ton salon** : depuis le lobby ou la page Amis ; l'ami reçoit une notification "Rejoindre".
+- Présence liée au compte via le cookie JWT du socket (multi-onglets gérés).

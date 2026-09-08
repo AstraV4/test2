@@ -13,11 +13,14 @@ import Leaderboards from './pages/Leaderboards.jsx';
 import Multiplayer from './pages/Multiplayer.jsx';
 import Room from './pages/Room.jsx';
 import Daily from './pages/Daily.jsx';
+import Friends from './pages/Friends.jsx';
+import { FriendsProvider } from './context/FriendsContext.jsx';
 
 export default function App() {
   const loc = useLocation();
   // Le salon prend tout l'écran (pas de footer encombrant)
   return (
+    <FriendsProvider>
     <div className="app-bg min-h-screen flex flex-col">
       <Background />
       <Header />
@@ -27,6 +30,7 @@ export default function App() {
           <Route path="/jeux" element={<Games />} />
           <Route path="/jeux/:slug" element={<GameDetail />} />
           <Route path="/defi" element={<Daily />} />
+          <Route path="/amis" element={<Friends />} />
           <Route path="/multijoueur" element={<Multiplayer />} />
           <Route path="/salon/:code" element={<Room />} />
           <Route path="/classements" element={<Leaderboards />} />
@@ -37,6 +41,7 @@ export default function App() {
       {!loc.pathname.startsWith('/salon/') && <Footer />}
       <AuthModal />
     </div>
+    </FriendsProvider>
   );
 }
 

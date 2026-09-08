@@ -1,4 +1,4 @@
-import { Zap, Brain, Hash, Shuffle, HelpCircle, Sparkles, Ghost, Calculator, Keyboard, Grid3x3, Palette, PartyPopper } from 'lucide-react';
+import { Zap, Brain, Hash, Shuffle, HelpCircle, Sparkles, Ghost, Calculator, Keyboard, Grid3x3, Palette, PartyPopper, Feather, MessageSquare } from 'lucide-react';
 
 // Métadonnées communes à tous les jeux. Ajouter un jeu = ajouter une entrée ici
 // + un composant dans src/games/<id>/. Le reste (fiche, routes, cartes) est générique.
@@ -99,6 +99,22 @@ export const GAMES = [
     color: ['#fb923c', '#ec4899'], ambiance: 'mystery', mode: 'multi', category: ['Entre amis', 'Multijoueur', 'Social'],
     players: '3-12', duration: '10-15 min', difficulty: 'Facile', avgScore: null, tags: ['Multijoueur', 'Entre amis', 'Party'],
     featured: true, isNew: true,
+  },
+  {
+    id: 'bluff', slug: 'bluff', name: 'Bluff', icon: Feather,
+    tagline: 'Invente une fausse réponse, retrouve la vraie.',
+    description: "Une question insolite à trou. Chacun invente une réponse crédible, puis tout le monde doit démasquer LA vraie parmi les intrus. Tu marques quand on gobe ton bluff… ou quand tu trouves la vérité.",
+    color: ['#f59e0b', '#7c5cff'], ambiance: 'word', mode: 'multi', category: ['Entre amis', 'Multijoueur', 'Social'],
+    players: '3-12', duration: '10-15 min', difficulty: 'Facile', avgScore: null, tags: ['Multijoueur', 'Entre amis', 'Party'],
+    featured: false, isNew: true,
+  },
+  {
+    id: 'caption', slug: 'caption-battle', name: 'Caption Battle', icon: MessageSquare,
+    tagline: 'La réponse la plus drôle l\u2019emporte.',
+    description: "Une situation absurde s'affiche. Chacun écrit sa réponse la plus drôle, puis tout le monde vote pour la meilleure. Celui qui fait le plus rire remporte la manche.",
+    color: ['#22d3ee', '#f472b6'], ambiance: 'word', mode: 'multi', category: ['Entre amis', 'Multijoueur', 'Créatif'],
+    players: '3-12', duration: '10-15 min', difficulty: 'Facile', avgScore: null, tags: ['Multijoueur', 'Entre amis', 'Créatif'],
+    featured: false, isNew: true,
   },
 ];
 

@@ -197,3 +197,50 @@ export function buildPartyRound(format, usedIdx, players) {
   // most : options = joueurs
   return { format, prompt: 'Qui est le plus susceptible de ' + pool[idx] + ' ?', options: players.map(p => ({ id: p.id, name: p.name, avatar: p.avatar })) };
 }
+
+/* ---------------- Bluff (trouve la vraie réponse) ---------------- */
+// Chaque manche : une question à trou. Les joueurs inventent une fausse réponse,
+// puis tout le monde doit retrouver LA vraie parmi les intrus.
+export const BLUFF_QA = [
+  { q: 'Le nom scientifique de la peur des vendredis 13 est la ___', a: 'paraskevidékatriaphobie' },
+  { q: 'Un groupe de flamants roses s\u2019appelle une ___', a: 'flamboyance' },
+  { q: 'Le cri du cerf s\u2019appelle le ___', a: 'brame' },
+  { q: 'La peur des longs mots s\u2019appelle l\u2019hippopotomonstro___', a: 'sesquippedaliophobie' },
+  { q: 'Un bébé kangourou s\u2019appelle un ___', a: 'joey' },
+  { q: 'Le point sur la lettre « i » s\u2019appelle un ___', a: 'point suscrit' },
+  { q: 'La partie dure au bout d\u2019un lacet s\u2019appelle un ___', a: 'aiguillette' },
+  { q: 'Un groupe de hiboux s\u2019appelle un ___', a: 'parlement' },
+  { q: 'La peur du nombre 666 s\u2019appelle l\u2019hexakosioihexekonta___', a: 'hexaphobie' },
+  { q: 'L\u2019espace entre les sourcils s\u2019appelle la ___', a: 'glabelle' },
+  { q: 'Le petit creux au-dessus de la lèvre supérieure s\u2019appelle le ___', a: 'philtrum' },
+  { q: 'Un groupe de corbeaux s\u2019appelle une ___', a: 'malice' },
+  { q: 'La peur d\u2019être sans téléphone s\u2019appelle la ___', a: 'nomophobie' },
+  { q: 'Le nom du symbole « # » en typographie est le ___', a: 'croisillon' },
+  { q: 'Un bébé lièvre s\u2019appelle un ___', a: 'levraut' },
+  { q: 'La science des drapeaux s\u2019appelle la ___', a: 'vexillologie' },
+  { q: 'Le bruit d\u2019un verre qui chante quand on frotte le bord s\u2019appelle un chant ___', a: 'cristallin' },
+  { q: 'Un groupe de méduses s\u2019appelle un ___', a: 'essaim' },
+];
+
+/* ---------------- Caption Battle (meilleure réponse) ---------------- */
+// Chaque manche : une situation. Chacun écrit sa réponse la plus drôle, puis on vote.
+export const CAPTION_PROMPTS = [
+  'La pire excuse pour un devoir non rendu',
+  'Ce qu\u2019on ne devrait jamais dire à un prof',
+  'Le super-pouvoir le plus inutile',
+  'Le pire nom pour un animal de compagnie',
+  'Une mauvaise idée de cadeau d\u2019anniversaire',
+  'Ce que pense ton chat quand tu pars',
+  'La pire chose à dire pendant un silence gênant',
+  'Le titre d\u2019un film catastrophe sur ta vie',
+  'Une règle absurde à instaurer au collège',
+  'La légende parfaite pour une photo ratée',
+  'Le pire slogan pour une pub de dentifrice',
+  'Ce qu\u2019on trouve au fond d\u2019un sac de cours',
+  'Une nouvelle matière scolaire complètement inutile',
+  'La pire façon de commencer un exposé',
+  'Ce que dirait ton frigo s\u2019il pouvait parler',
+  'Le pire pouvoir pour un super-héros de quartier',
+  'Une excuse bidon pour quitter une fête',
+  'Le nom d\u2019un groupe de musique formé en cours',
+];

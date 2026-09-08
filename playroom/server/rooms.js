@@ -1,5 +1,5 @@
 import { customAlphabet } from 'nanoid';
-import { pickImposterWord, IMPOSTER_THEME_LIST, DRAW_WORDS, buildPartyRound } from './gamedata.js';
+import { pickImposterWord, IMPOSTER_THEME_LIST, DRAW_WORDS, buildPartyRound, BLUFF_QA, CAPTION_PROMPTS } from './gamedata.js';
 
 const genCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 5);
 
@@ -10,11 +10,29 @@ const genCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 5);
  * serveur. Le client n'émet que des intentions et affiche l'état reçu.
  */
 export class RoomManager {
-  constructor(io) {
+  constructor(io, presence = null) {
     this.io = io;
+    this.presence = presence;
     this.rooms = new Map();       // code -> room
     this.socketIndex = new Map(); // socketId -> { code, playerId }
   }
+
+  // Activité (présence) : appelée quand un salon change d'état.
+  _touchActivity(room) {
+    if (!this.presence) return;
+    for (const p of room.players) {
+      if (!p.connected) continue;
+      const s = this.io.sockets.sockets.get(p.socketId);
+      const uid = s?.data?.userId;
+      if (uid) this.presence.setActivity(uid, { code: room.code, gameType: room.gameType, phase: room.phase });
+    }
+  }
+  _clearActivity(socket) {
+    const uid = socket?.data?.userId;
+    if (uid && this.presence) this.presence.setActivity(uid, null);
+  }
+  roomCodeOf(socket) { const idx = this.socketIndex.get(socket.id); return idx ? idx.code : null; }
+  roomGameType(code) { const r = this.rooms.get(code); return r ? r.gameType : null; }
 
   publicRoom(room) {
     const base = {
@@ -44,6 +62,28 @@ export class RoomManager {
         totalTurns: room.totalTurns || 0,
       };
     }
+    if (room.gameType === 'bluff' && room.bluff) {
+      const b = room.bluff;
+      base.bluff = {
+        question: b.question,
+        turn: room.bluffTurn || 0, total: room.bluffTotal || 0,
+        answeredIds: Object.keys(b.answers || {}),
+        options: (room.phase === 'bluffGuess') ? (b.options || []).map((o, i) => ({ i, text: o.text })) : null,
+        pickedIds: Object.keys(b.picks || {}),
+        reveal: b.reveal || null,
+      };
+    }
+    if (room.gameType === 'caption' && room.caption) {
+      const c = room.caption;
+      base.caption = {
+        prompt: c.prompt,
+        turn: room.capTurn || 0, total: room.capTotal || 0,
+        answeredIds: Object.keys(c.answers || {}),
+        entries: (room.phase === 'capVote') ? (c.entries || []).map(e => ({ id: e.id, text: e.text })) : null,
+        votedIds: Object.keys(c.votes || {}),
+        reveal: c.reveal || null,
+      };
+    }
     if (room.gameType === 'party' && room.partyRound) {
       const r = room.partyRound;
       base.party = {
@@ -66,7 +106,7 @@ export class RoomManager {
     const playerId = socket.id;
     const room = {
       code, hostId: playerId, gameType: 'imposter', phase: 'lobby', round: 0,
-      settings: { imposters: 1, discussionSec: 90, rounds: 1, theme: 'Aléatoire', drawSec: 75, drawRounds: 1, partyRounds: 8 },
+      settings: { imposters: 1, discussionSec: 90, rounds: 1, theme: 'Aléatoire', drawSec: 75, drawRounds: 1, partyRounds: 8, bluffRounds: 5, captionRounds: 5 },
       players: [{ id: playerId, name: sanitizeName(name), avatar: avatar || 'nebula', ready: false, connected: true, socketId: socket.id, lastChat: 0 }],
       votes: {}, roles: {}, clueOrder: [], clueIndex: 0, timer: null,
       scores: null, guessed: null, drawerId: null, word: null,
@@ -75,6 +115,7 @@ export class RoomManager {
     this._bind(socket, code, playerId);
     socket.emit('room:joined', { code, playerId });
     this.emitRoom(room);
+    this._touchActivity(room);
     return room;
   }
 
@@ -89,6 +130,7 @@ export class RoomManager {
     this._bind(socket, code, playerId);
     socket.emit('room:joined', { code, playerId });
     this.emitRoom(room);
+    this._touchActivity(room);
   }
 
   _bind(socket, code, playerId) { socket.join(code); this.socketIndex.set(socket.id, { code, playerId }); }
@@ -98,7 +140,7 @@ export class RoomManager {
 
   setGameType(socket, type) {
     const room = this._room(socket); if (!room || !this._isHost(room, socket) || room.phase !== 'lobby') return;
-    if (type === 'imposter' || type === 'draw' || type === 'party') { room.gameType = type; this.emitRoom(room); }
+    if (['imposter', 'draw', 'party', 'bluff', 'caption'].includes(type)) { room.gameType = type; this.emitRoom(room); this._touchActivity(room); }
   }
 
   // Renvoie l'état privé courant à un joueur qui (ré)affiche le jeu.
@@ -136,6 +178,8 @@ export class RoomManager {
     if (settings.drawSec != null) s.drawSec = clamp(parseInt(settings.drawSec, 10) || s.drawSec, 40, 150);
     if (settings.drawRounds != null) s.drawRounds = clamp(parseInt(settings.drawRounds, 10) || s.drawRounds, 1, 3);
     if (settings.partyRounds != null) s.partyRounds = clamp(parseInt(settings.partyRounds, 10) || s.partyRounds, 3, 15);
+    if (settings.bluffRounds != null) s.bluffRounds = clamp(parseInt(settings.bluffRounds, 10) || s.bluffRounds, 3, 10);
+    if (settings.captionRounds != null) s.captionRounds = clamp(parseInt(settings.captionRounds, 10) || s.captionRounds, 3, 10);
     this.emitRoom(room);
   }
 
@@ -153,7 +197,10 @@ export class RoomManager {
     if (room.players.length < 3) return socket.emit('room:error', { message: 'Il faut au moins 3 joueurs.' });
     if (room.gameType === 'draw') this._beginDraw(room);
     else if (room.gameType === 'party') this._beginParty(room);
+    else if (room.gameType === 'bluff') this._beginBluff(room);
+    else if (room.gameType === 'caption') this._beginCaption(room);
     else this._beginRound(room);
+    this._touchActivity(room);
   }
 
   /* ============================ IMPOSTEUR ============================ */
@@ -224,6 +271,8 @@ export class RoomManager {
     const room = this._room(socket); if (!room || !this._isHost(room, socket)) return;
     if (room.gameType === 'draw') { this._nextDrawTurn(room); return; }
     if (room.gameType === 'party') { this._nextParty(room); return; }
+    if (room.gameType === 'bluff') { this._nextBluff(room); return; }
+    if (room.gameType === 'caption') { this._nextCaption(room); return; }
     if (room.round >= room.settings.rounds) { this._toLobby(room); return; }
     this._beginRound(room);
   }
@@ -233,9 +282,11 @@ export class RoomManager {
     room.phase = 'lobby'; room.round = 0; room.votes = {}; room.roles = {}; room.lastResult = null;
     room.scores = null; room.guessed = null; room.drawerId = null; room.word = null;
     room.partyRound = null; room.partyReveal = null; room.partyTurn = 0; room.partyUsed = null;
+    room.bluff = null; room.caption = null;
     room.players.forEach(p => { p.ready = false; p.eliminated = false; });
     this.io.to(room.code).emit('game:toLobby');
     this.emitRoom(room);
+    this._touchActivity(room);
   }
 
   /* ============================ DRAW & GUESS ============================ */
@@ -439,10 +490,177 @@ export class RoomManager {
     this.emitRoom(room);
   }
 
+  /* ============================ BLUFF ============================ */
+  _beginBluff(room) {
+    room.scores = {}; room.players.forEach(p => { room.scores[p.id] = 0; });
+    room.bluffUsed = new Set(); room.bluffTurn = 0; room.bluffTotal = room.settings.bluffRounds;
+    this._beginBluffRound(room);
+  }
+  _beginBluffRound(room) {
+    room.bluffTurn += 1;
+    let idx = Math.floor(Math.random() * BLUFF_QA.length);
+    for (let i = 0; i < BLUFF_QA.length && room.bluffUsed.has(idx); i++) idx = (idx + 1) % BLUFF_QA.length;
+    room.bluffUsed.add(idx);
+    const qa = BLUFF_QA[idx];
+    room.bluff = { question: qa.q, real: qa.a, answers: {}, options: null, picks: {}, truth: new Set(), reveal: null };
+    room.phase = 'bluffWrite';
+    this.emitRoom(room);
+    this._setTimer(room, 40000, () => this._bluffToGuess(room));
+  }
+  bluffAnswer(socket, text) {
+    const room = this._room(socket); if (!room || room.phase !== 'bluffWrite') return;
+    const me = this._me(room, socket); if (!me) return;
+    const t = sanitizeChat(text); if (!t) return;
+    room.bluff.answers[me.id] = t;
+    this.emitRoom(room);
+    const voters = room.players.filter(p => p.connected);
+    if (voters.length && voters.every(p => room.bluff.answers[p.id] !== undefined)) this._bluffToGuess(room);
+  }
+  _bluffToGuess(room) {
+    this._clearTimer(room);
+    const b = room.bluff; if (!b || b.options) return;
+    const map = new Map(); // norm -> { text, ownerIds:Set }
+    for (const pid in b.answers) {
+      const txt = b.answers[pid];
+      if (norm(txt) === norm(b.real)) { b.truth.add(pid); continue; } // a écrit la vérité
+      const key = norm(txt);
+      if (!map.has(key)) map.set(key, { text: txt, ownerIds: new Set(), real: false });
+      map.get(key).ownerIds.add(pid);
+    }
+    const opts = [...map.values()];
+    opts.push({ text: b.real, ownerIds: new Set(), real: true });
+    shuffle(opts);
+    b.options = opts.map(o => ({ text: o.text, ownerIds: [...o.ownerIds], real: o.real }));
+    room.phase = 'bluffGuess';
+    this.emitRoom(room);
+    this._setTimer(room, 30000, () => this._bluffReveal(room));
+  }
+  bluffPick(socket, index) {
+    const room = this._room(socket); if (!room || room.phase !== 'bluffGuess') return;
+    const me = this._me(room, socket); if (!me) return;
+    const b = room.bluff; const i = parseInt(index, 10);
+    if (!b.options[i]) return;
+    if (b.options[i].ownerIds.includes(me.id)) return; // pas son propre bluff
+    if (b.truth.has(me.id)) return;                    // a déjà trouvé la vérité
+    b.picks[me.id] = i;
+    this.emitRoom(room);
+    const voters = room.players.filter(p => p.connected && !b.truth.has(p.id));
+    if (voters.length && voters.every(p => b.picks[p.id] !== undefined)) this._bluffReveal(room);
+  }
+  _bluffReveal(room) {
+    this._clearTimer(room);
+    const b = room.bluff; if (!b || b.reveal) return;
+    const realIndex = b.options.findIndex(o => o.real);
+    const votesByOpt = b.options.map(() => []);
+    for (const pid in b.picks) { const i = b.picks[pid]; if (votesByOpt[i]) votesByOpt[i].push(pid); }
+    // Scoring
+    for (const pid in b.picks) { if (b.picks[pid] === realIndex) room.scores[pid] += 100; }
+    b.options.forEach((o, i) => { if (!o.real) { const fooled = votesByOpt[i].length; o.ownerIds.forEach(oid => { room.scores[oid] = (room.scores[oid] || 0) + 50 * fooled; }); } });
+    b.truth.forEach(pid => { room.scores[pid] = (room.scores[pid] || 0) + 100; });
+    const nameOf = (id) => room.players.find(p => p.id === id)?.name || '?';
+    b.reveal = {
+      realIndex,
+      options: b.options.map((o, i) => ({ text: o.text, real: o.real, owners: o.ownerIds.map(nameOf), voters: votesByOpt[i].map(nameOf) })),
+      truthFinders: [...b.truth].map(nameOf),
+      scores: room.scores,
+    };
+    room.phase = 'bluffReveal';
+    this.io.to(room.code).emit('bluff:reveal', b.reveal);
+    this.emitRoom(room);
+    this._setTimer(room, 10000, () => this._nextBluff(room));
+  }
+  _nextBluff(room) {
+    this._clearTimer(room);
+    if (room.bluffTurn >= room.bluffTotal) { this._endGeneric(room, 'bluff:over'); return; }
+    this._beginBluffRound(room);
+  }
+
+  /* ============================ CAPTION BATTLE ============================ */
+  _beginCaption(room) {
+    room.scores = {}; room.players.forEach(p => { room.scores[p.id] = 0; });
+    room.capUsed = new Set(); room.capTurn = 0; room.capTotal = room.settings.captionRounds;
+    this._beginCaptionRound(room);
+  }
+  _beginCaptionRound(room) {
+    room.capTurn += 1;
+    let idx = Math.floor(Math.random() * CAPTION_PROMPTS.length);
+    for (let i = 0; i < CAPTION_PROMPTS.length && room.capUsed.has(idx); i++) idx = (idx + 1) % CAPTION_PROMPTS.length;
+    room.capUsed.add(idx);
+    room.caption = { prompt: CAPTION_PROMPTS[idx], answers: {}, entries: null, votes: {}, reveal: null };
+    room.phase = 'capWrite';
+    this.emitRoom(room);
+    this._setTimer(room, 45000, () => this._capToVote(room));
+  }
+  captionAnswer(socket, text) {
+    const room = this._room(socket); if (!room || room.phase !== 'capWrite') return;
+    const me = this._me(room, socket); if (!me) return;
+    const t = sanitizeChat(text); if (!t) return;
+    room.caption.answers[me.id] = t;
+    this.emitRoom(room);
+    const voters = room.players.filter(p => p.connected);
+    if (voters.length && voters.every(p => room.caption.answers[p.id] !== undefined)) this._capToVote(room);
+  }
+  _capToVote(room) {
+    this._clearTimer(room);
+    const c = room.caption; if (!c || c.entries) return;
+    c.entries = Object.entries(c.answers).map(([id, text]) => ({ id, text }));
+    shuffle(c.entries);
+    if (c.entries.length < 2) { this._capReveal(room); return; } // pas assez de réponses
+    room.phase = 'capVote';
+    this.emitRoom(room);
+    this._setTimer(room, 30000, () => this._capReveal(room));
+  }
+  captionVote(socket, targetId) {
+    const room = this._room(socket); if (!room || room.phase !== 'capVote') return;
+    const me = this._me(room, socket); if (!me) return;
+    const c = room.caption;
+    if (targetId === me.id) return;                       // pas voter pour soi
+    if (!c.entries.some(e => e.id === targetId)) return;
+    c.votes[me.id] = targetId;
+    this.emitRoom(room);
+    const voters = room.players.filter(p => p.connected);
+    if (voters.length && voters.every(p => c.votes[p.id] !== undefined)) this._capReveal(room);
+  }
+  _capReveal(room) {
+    this._clearTimer(room);
+    const c = room.caption; if (!c || c.reveal) return;
+    const tally = {}; for (const v in c.votes) tally[c.votes[v]] = (tally[c.votes[v]] || 0) + 1;
+    (c.entries || []).forEach(e => { const v = tally[e.id] || 0; room.scores[e.id] = (room.scores[e.id] || 0) + v * 100; });
+    let winnerId = null, best = -1; for (const id in tally) if (tally[id] > best) { best = tally[id]; winnerId = id; }
+    const nameOf = (id) => room.players.find(p => p.id === id)?.name || '?';
+    c.reveal = {
+      prompt: c.prompt,
+      entries: (c.entries || []).map(e => ({ author: nameOf(e.id), text: e.text, votes: tally[e.id] || 0 })).sort((a, b) => b.votes - a.votes),
+      winner: winnerId ? nameOf(winnerId) : null,
+      scores: room.scores,
+    };
+    room.phase = 'capReveal';
+    this.io.to(room.code).emit('caption:reveal', c.reveal);
+    this.emitRoom(room);
+    this._setTimer(room, 10000, () => this._nextCaption(room));
+  }
+  _nextCaption(room) {
+    this._clearTimer(room);
+    if (room.capTurn >= room.capTotal) { this._endGeneric(room, 'caption:over'); return; }
+    this._beginCaptionRound(room);
+  }
+
+  // Podium générique (bluff/caption)
+  _endGeneric(room, event) {
+    this._clearTimer(room);
+    room.phase = event === 'bluff:over' ? 'bluffOver' : 'capOver';
+    const podium = Object.entries(room.scores || {})
+      .map(([id, score]) => { const p = room.players.find(x => x.id === id); return { id, name: p?.name || '?', avatar: p?.avatar || 'nebula', score }; })
+      .sort((a, b) => b.score - a.score);
+    room.genericPodium = podium;
+    this.io.to(room.code).emit(event, { podium });
+    this.emitRoom(room);
+  }
+
   /* ============================ CHAT ============================ */
   _chatAllowed(room) {
     if (room.gameType === 'draw') return true; // le chat sert aussi à deviner
-    if (room.gameType === 'party') return true; // social : chat libre
+    if (room.gameType === 'party' || room.gameType === 'bluff' || room.gameType === 'caption') return true; // social
     // Imposteur : chat libre au lobby, en discussion et au résultat ; bloqué pendant reveal/indices/vote
     return ['lobby', 'discussion', 'result'].includes(room.phase);
   }
@@ -474,10 +692,11 @@ export class RoomManager {
     else me.connected = false;
     if (me.id === room.hostId) { const next = room.players.find(p => p.connected && p.socketId !== socket.id); if (next) room.hostId = next.id; }
     if (room.players.length === 0 || room.players.every(p => !p.connected)) { this._clearTimer(room); this.rooms.delete(room.code); return; }
+    this._clearActivity(socket);
     if (wasDrawer) { this._endDrawTurn(room, 'drawerLeft'); return; }
     this.emitRoom(room);
   }
-  leaveRoom(socket) { const room = this._room(socket); this.handleDisconnect(socket); if (room) socket.leave(room.code); }
+  leaveRoom(socket) { const room = this._room(socket); this._clearActivity(socket); this.handleDisconnect(socket); if (room) socket.leave(room.code); }
 
   _setTimer(room, ms, fn) {
     this._clearTimer(room);

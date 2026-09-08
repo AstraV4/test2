@@ -10,9 +10,14 @@ import {
   findUserByName, findUserByEmail, findUserById, createUser, publicUser,
   setAvatar, addXp, levelFromXp, recordScore, bestScore, userStats,
   leaderboard, xpLeaderboard, listAchievements, grantAchievement,
+  areFriends, addFriend, removeFriend, listFriendIds, listFriends,
+  sendRequest, acceptRequest, declineRequest, cancelRequest, listIncoming, listOutgoing, searchUsers,
+  blockUser, unblockUser, isBlocked, blockedBetween, listBlocked, listBlockedIds, addReport,
+  seasonInfo, addSeasonXp, seasonXpOf, seasonLeaderboard,
 } from './db.js';
-import { COOKIE, setAuthCookie, clearAuthCookie, userIdFromReq, requireAuth } from './auth.js';
+import { COOKIE, setAuthCookie, clearAuthCookie, userIdFromReq, requireAuth, verifyToken } from './auth.js';
 import { RoomManager } from './rooms.js';
+import { Presence } from './presence.js';
 import { SECRET_WORDS, semanticScore, dailySecretIndex, QUIZ, ANAGRAM_WORDS } from './gamedata.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -124,6 +129,7 @@ app.post('/api/games/score', requireAuth, rateLimit(120, 60000), (req, res) => {
   const isRecord = prevBest == null || score > prevBest;
   if (isRecord) xpGain += 10;
   addXp(req.userId, xpGain);
+  addSeasonXp(req.userId, xpGain);
   const user = findUserById(req.userId);
   const stats = userStats(req.userId);
   const newAch = checkAchievements(req.userId, game, score, stats);
@@ -212,6 +218,88 @@ app.post('/api/anagram/check', (req, res) => {
   } catch { res.status(400).json({ error: 'bad_token' }); }
 });
 
+/* ============================ AMIS ============================ */
+function friendsPayload(userId) {
+  const friends = listFriends(userId).map(f => ({ ...f, ...presence.statusOf(f.id) }));
+  // en ligne d'abord, puis par niveau
+  friends.sort((a, b) => (b.online - a.online) || (b.level - a.level));
+  return { friends, incoming: listIncoming(userId), outgoing: listOutgoing(userId) };
+}
+app.get('/api/friends', requireAuth, (req, res) => res.json(friendsPayload(req.userId)));
+
+app.get('/api/users/search', requireAuth, (req, res) => {
+  const q = String(req.query.q || '').trim();
+  if (q.length < 2) return res.json({ results: [] });
+  const friendSet = new Set(listFriendIds(req.userId));
+  const out = new Set(listOutgoing(req.userId).map(u => u.id));
+  const inc = new Set(listIncoming(req.userId).map(u => u.id));
+  const results = searchUsers(q, req.userId).map(u => ({
+    ...u, relation: friendSet.has(u.id) ? 'friend' : out.has(u.id) ? 'sent' : inc.has(u.id) ? 'incoming' : 'none',
+  }));
+  res.json({ results });
+});
+
+app.post('/api/friends/request', requireAuth, rateLimit(40, 60000), (req, res) => {
+  const username = String(req.body?.username || '').trim();
+  const target = findUserByName.get(username);
+  if (!target) return res.status(404).json({ error: 'user_not_found' });
+  if (blockedBetween(req.userId, target.id)) return res.status(403).json({ error: 'blocked' });
+  const r = sendRequest(req.userId, target.id);
+  // notifier la cible en temps réel
+  if (r === 'sent' || r === 'accepted') { presence.emitToUser(target.id, 'friends:update', {}); presence.emitToUser(req.userId, 'friends:update', {}); }
+  res.json({ status: r });
+});
+app.post('/api/friends/accept', requireAuth, (req, res) => {
+  const fromId = parseInt(req.body?.userId, 10);
+  const ok = acceptRequest(req.userId, fromId);
+  if (ok) { presence.emitToUser(fromId, 'friends:update', {}); presence.emitToUser(req.userId, 'friends:update', {}); }
+  res.json({ ok });
+});
+app.post('/api/friends/decline', requireAuth, (req, res) => {
+  const fromId = parseInt(req.body?.userId, 10);
+  declineRequest(req.userId, fromId);
+  presence.emitToUser(fromId, 'friends:update', {});
+  res.json({ ok: true });
+});
+app.post('/api/friends/cancel', requireAuth, (req, res) => {
+  const toId = parseInt(req.body?.userId, 10);
+  cancelRequest(req.userId, toId);
+  presence.emitToUser(toId, 'friends:update', {});
+  res.json({ ok: true });
+});
+app.post('/api/friends/remove', requireAuth, (req, res) => {
+  const otherId = parseInt(req.body?.userId, 10);
+  removeFriend(req.userId, otherId);
+  presence.emitToUser(otherId, 'friends:update', {});
+  res.json({ ok: true });
+});
+
+/* ============================ MODÉRATION ============================ */
+app.get('/api/mod/blocked', requireAuth, (req, res) => res.json({ blocked: listBlocked(req.userId) }));
+app.post('/api/mod/block', requireAuth, (req, res) => {
+  const otherId = parseInt(req.body?.userId, 10); if (!otherId || otherId === req.userId) return res.status(400).json({ error: 'bad_request' });
+  blockUser(req.userId, otherId);
+  presence.emitToUser(otherId, 'friends:update', {}); presence.emitToUser(req.userId, 'friends:update', {});
+  res.json({ ok: true });
+});
+app.post('/api/mod/unblock', requireAuth, (req, res) => {
+  const otherId = parseInt(req.body?.userId, 10); unblockUser(req.userId, otherId); res.json({ ok: true });
+});
+app.post('/api/mod/report', requireAuth, rateLimit(20, 60000), (req, res) => {
+  const otherId = parseInt(req.body?.userId, 10); if (!otherId) return res.status(400).json({ error: 'bad_request' });
+  addReport(req.userId, otherId, req.body?.reason);
+  res.json({ ok: true });
+});
+
+/* ============================ SAISON ============================ */
+app.get('/api/season', (req, res) => {
+  const season = seasonInfo();
+  const top = seasonLeaderboard(50);
+  let me = null; const uid = userIdFromReq(req);
+  if (uid) { const xp = seasonXpOf(uid); me = { xp, ...levelFromXp(xp), rank: (top.find(r => r.userId === uid)?.rank) || null }; }
+  res.json({ season, top, me });
+});
+
 /* ============================ SPA ============================ */
 const distDir = path.join(ROOT, 'dist');
 app.use(express.static(distDir, { maxAge: '1h', index: false }));
@@ -226,9 +314,21 @@ app.get('*', (req, res) => {
 /* ============================ SOCKET.IO ============================ */
 const server = http.createServer(app);
 const io = new SocketServer(server, { cors: { origin: true, credentials: true } });
-const rooms = new RoomManager(io);
+const presence = new Presence(io, listFriendIds);
+const rooms = new RoomManager(io, presence);
+
+// Authentifie le socket via le cookie JWT (présence liée au compte).
+function userIdFromCookie(cookieHeader) {
+  if (!cookieHeader) return null;
+  const m = cookieHeader.split(';').map(s => s.trim()).find(s => s.startsWith(COOKIE + '='));
+  if (!m) return null;
+  return verifyToken(decodeURIComponent(m.slice(COOKIE.length + 1)));
+}
 
 io.on('connection', (socket) => {
+  const uid = userIdFromCookie(socket.handshake.headers?.cookie);
+  if (uid) { socket.data.userId = uid; presence.add(uid, socket.id); }
+
   socket.on('room:create', (d) => rooms.createRoom(socket, d || {}));
   socket.on('room:join', (d) => rooms.joinRoom(socket, d || {}));
   socket.on('room:ready', (d) => rooms.setReady(socket, d?.ready));
@@ -248,7 +348,25 @@ io.on('connection', (socket) => {
   socket.on('draw:stroke', (d) => rooms.relayStroke(socket, d));
   socket.on('draw:clear', () => rooms.clearCanvas(socket));
   socket.on('party:vote', (d) => rooms.castPartyVote(socket, d?.choice));
-  socket.on('disconnect', () => rooms.handleDisconnect(socket));
+  socket.on('bluff:answer', (d) => rooms.bluffAnswer(socket, d?.text));
+  socket.on('bluff:pick', (d) => rooms.bluffPick(socket, d?.index));
+  socket.on('caption:answer', (d) => rooms.captionAnswer(socket, d?.text));
+  socket.on('caption:vote', (d) => rooms.captionVote(socket, d?.targetId));
+
+  // Invitation directe dans son salon
+  socket.on('invite:send', (d) => {
+    const fromId = socket.data.userId; if (!fromId) return;
+    const toId = parseInt(d?.toUserId, 10); if (!toId) return;
+    if (!areFriends(fromId, toId)) return;
+    if (blockedBetween(fromId, toId)) return;
+    const code = rooms.roomCodeOf(socket);
+    if (!code) { socket.emit('invite:error', { message: 'Tu dois être dans un salon pour inviter.' }); return; }
+    const from = findUserById(fromId);
+    presence.emitToUser(toId, 'invite:receive', { code, gameType: rooms.roomGameType(code), fromName: from?.username, fromAvatar: from?.avatar });
+    socket.emit('invite:sent', { toUserId: toId });
+  });
+
+  socket.on('disconnect', () => { rooms.handleDisconnect(socket); presence.remove(socket.id); });
 });
 
 server.listen(PORT, () => console.log(`PLAYROOM prêt sur :${PORT}`));

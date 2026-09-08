@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Send, MessageCircle, Lock } from 'lucide-react';
 import { Avatar } from './ui/index.jsx';
+import { useFriends } from '../context/FriendsContext.jsx';
 
 // Chat de salon réutilisable (Imposteur + Draw & Guess).
 // Le serveur valide et limite les messages ; ici on affiche et on émet.
@@ -10,6 +11,8 @@ export default function Chat({ socket, room, playerId, compact = false }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const listRef = useRef(null);
+  const friends = useFriends();
+  const blockedIds = friends?.blockedIds || new Set();
 
   useEffect(() => {
     const onMsg = (m) => setMessages(prev => [...prev.slice(-80), { ...m, kind: 'msg' }]);
@@ -43,6 +46,7 @@ export default function Chat({ socket, room, playerId, compact = false }) {
       <div ref={listRef} className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
         {messages.length === 0 && <p className="text-xs text-muted text-center py-6">Pas encore de message.</p>}
         {messages.map((m, i) => {
+          if (m.kind === 'msg' && m.playerId && blockedIds.has(m.playerId)) return null;
           if (m.kind === 'correct') return <div key={m.id || i} className="text-xs text-success font-semibold px-1">✅ {m.name} a trouvé le mot ! {m.order === 1 && '🥇'}</div>;
           if (m.kind === 'system') return <div key={m.id || i} className="text-xs text-muted italic px-1">{m.text}</div>;
           return (
