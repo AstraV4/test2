@@ -312,4 +312,49 @@ const _listFav = db.prepare('SELECT friend_id FROM favorites WHERE user_id = ?')
 export function setFavorite(userId, friendId, on) { if (on) _addFav.run(userId, friendId); else _delFav.run(userId, friendId); }
 export function listFavoriteIds(userId) { return _listFav.all(userId).map(r => r.friend_id); }
 
+/* ---------------- Streak à deux (jours consécutifs joués ensemble) ---------------- */
+db.exec(`CREATE TABLE IF NOT EXISTS duo_streak (u_lo INTEGER, u_hi INTEGER, last_day TEXT, streak INTEGER DEFAULT 0, best INTEGER DEFAULT 0, PRIMARY KEY (u_lo, u_hi));`);
+const _getDuo = db.prepare('SELECT * FROM duo_streak WHERE u_lo = ? AND u_hi = ?');
+const _upsertDuo = db.prepare(`INSERT INTO duo_streak (u_lo, u_hi, last_day, streak, best) VALUES (@lo, @hi, @day, @streak, @best)
+  ON CONFLICT(u_lo, u_hi) DO UPDATE SET last_day=@day, streak=@streak, best=@best`);
+function ymd(ts) { return new Date(ts).toISOString().slice(0, 10); }
+export function recordDuoPlay(a, b) {
+  const [lo, hi] = a < b ? [a, b] : [b, a];
+  const today = ymd(now());
+  const yest = ymd(now() - 864e5);
+  const row = _getDuo.get(lo, hi);
+  let streak = 1;
+  if (row) {
+    if (row.last_day === today) streak = row.streak;      // déjà compté aujourd'hui
+    else if (row.last_day === yest) streak = row.streak + 1; // jour consécutif
+    else streak = 1;                                        // série cassée
+  }
+  const best = Math.max(streak, row?.best || 0);
+  _upsertDuo.run({ lo, hi, day: today, streak, best });
+  return { streak, best };
+}
+export function duoStreak(a, b) {
+  const [lo, hi] = a < b ? [a, b] : [b, a];
+  const row = _getDuo.get(lo, hi);
+  if (!row) return { streak: 0, best: 0 };
+  const today = ymd(now()), yest = ymd(now() - 864e5);
+  const live = (row.last_day === today || row.last_day === yest) ? row.streak : 0; // série encore active ?
+  return { streak: live, best: row.best };
+}
+
+/* ---------------- Crush secret (révélation réciproque) ---------------- */
+db.exec(`CREATE TABLE IF NOT EXISTS crushes (from_id INTEGER NOT NULL, to_id INTEGER NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (from_id, to_id));`);
+const _setCrush = db.prepare('INSERT OR IGNORE INTO crushes (from_id, to_id, created_at) VALUES (?, ?, ?)');
+const _delCrush = db.prepare('DELETE FROM crushes WHERE from_id = ? AND to_id = ?');
+const _hasCrush = db.prepare('SELECT 1 FROM crushes WHERE from_id = ? AND to_id = ?');
+export function setCrush(fromId, toId, on) { if (on) _setCrush.run(fromId, toId, now()); else _delCrush.run(fromId, toId); }
+export function hasCrush(fromId, toId) { return !!_hasCrush.get(fromId, toId); }
+export function isMutualCrush(a, b) { return hasCrush(a, b) && hasCrush(b, a); }
+// État visible par "me" : on ne révèle JAMAIS le crush de l'autre sauf s'il est réciproque.
+export function crushState(meId, otherId) {
+  const iSet = hasCrush(meId, otherId);
+  const mutual = iSet && hasCrush(otherId, meId);
+  return { iSet, mutual };
+}
+
 export default db;

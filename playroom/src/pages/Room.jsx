@@ -219,6 +219,7 @@ function LobbyControls({ room, me, isHost }) {
   const isBluff = room.gameType === 'bluff';
   const isCaption = room.gameType === 'caption';
   const isDuel = DUEL_TYPES.includes(room.gameType) || ['wyrduel', 'nbduel', 'wordduel', 'coupleduo'].includes(room.gameType);
+  const isCouple = room.gameType === 'coupleduo';
   const canStart = isDuel ? room.players.length === 2 : room.players.length >= 3;
 
   return (
@@ -309,6 +310,21 @@ function LobbyControls({ room, me, isHost }) {
               </Setting>
             </div>
           )}
+        </div>
+      )}
+
+      {isHost && isCouple && (
+        <div>
+          <h3 className="font-semibold mb-2 text-sm text-muted">Ambiance des questions</h3>
+          <div className="grid grid-cols-3 gap-2">
+            {[{ id: 'mignon', emo: '😊', name: 'Mignon' }, { id: 'flirt', emo: '😏', name: 'Flirt' }, { id: 'mix', emo: '💞', name: 'Mix' }].map(m => (
+              <button key={m.id} onClick={() => socket.emit('room:settings', { coupleMode: m.id })}
+                className={`rounded-xl border p-2.5 text-center transition-all ${(room.settings.coupleMode || 'mignon') === m.id ? 'border-brand bg-brand/10' : 'border-border bg-surface-2 hover:border-brand/40'}`}>
+                <div className="text-lg">{m.emo}</div><div className="font-semibold text-xs mt-0.5">{m.name}</div>
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted mt-1">« Flirt » = questions plus taquines (mais toujours correctes).</p>
         </div>
       )}
 

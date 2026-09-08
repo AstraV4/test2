@@ -15,7 +15,8 @@ import {
   blockUser, unblockUser, isBlocked, blockedBetween, listBlocked, listBlockedIds, addReport,
   seasonInfo, addSeasonXp, seasonXpOf, seasonLeaderboard,
   sendDm, dmThread, markDmRead, unreadCounts, unreadTotal, updateProfile,
-  setFavorite, listFavoriteIds,
+  setFavorite, listFavoriteIds, duoStreak,
+  setCrush, isMutualCrush, crushState,
 } from './db.js';
 import { COOKIE, setAuthCookie, clearAuthCookie, userIdFromReq, requireAuth, verifyToken } from './auth.js';
 import { RoomManager } from './rooms.js';
@@ -303,7 +304,33 @@ app.get('/api/users/:id/profile', (req, res) => {
     else if (listOutgoing(viewer).some(x => x.id === id)) relation = 'sent';
     else if (listIncoming(viewer).some(x => x.id === id)) relation = 'incoming';
   } else if (viewer === id) relation = 'self';
-  res.json({ user: publicUser(u), stats, achievements, relation, online: presence.isOnline(id) });
+  let duo = null; if (viewer && viewer !== id) duo = duoStreak(viewer, id);
+  res.json({ user: publicUser(u), stats, achievements, relation, online: presence.isOnline(id), duo });
+});
+
+app.get('/api/duo/:id/streak', requireAuth, (req, res) => {
+  const other = parseInt(req.params.id, 10);
+  res.json(duoStreak(req.userId, other));
+});
+
+/* ---------------- Crush secret (réciproque) ---------------- */
+app.get('/api/crush/:id', requireAuth, (req, res) => {
+  const other = parseInt(req.params.id, 10);
+  if (!areFriends(req.userId, other)) return res.status(403).json({ error: 'not_friends' });
+  res.json(crushState(req.userId, other));
+});
+app.post('/api/crush/:id', requireAuth, rateLimit(30, 60000), (req, res) => {
+  const other = parseInt(req.params.id, 10); if (!other || other === req.userId) return res.status(400).json({ error: 'bad_request' });
+  if (!areFriends(req.userId, other)) return res.status(403).json({ error: 'not_friends' });
+  setCrush(req.userId, other, !!req.body?.on);
+  const mutual = isMutualCrush(req.userId, other);
+  if (mutual) {
+    // Révélation simultanée aux deux : c'est réciproque 💞
+    const me = findUserById(req.userId); const them = findUserById(other);
+    presence.emitToUser(other, 'crush:match', { withId: req.userId, withName: me?.username, withAvatar: me?.avatar });
+    presence.emitToUser(req.userId, 'crush:match', { withId: other, withName: them?.username, withAvatar: them?.avatar });
+  }
+  res.json(crushState(req.userId, other));
 });
 
 /* ============================ MESSAGERIE (DM) ============================ */

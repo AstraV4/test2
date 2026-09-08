@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Scale, Send, Heart, Shuffle, Check } from 'lucide-react';
+import { Scale, Send, Heart, Shuffle, Check, Flame } from 'lucide-react';
 import { Avatar, Button, Tag, Spinner } from '../../components/ui/index.jsx';
 import { burstConfetti } from '../../components/PlayAgain.jsx';
+import ShareCard from '../../components/ShareCard.jsx';
 import { sound } from '../../lib/sound.js';
 
 // « Tu préfères ? » à 2 : à tour de rôle, un joueur écrit un dilemme (et son choix secret),
@@ -13,6 +14,7 @@ export default function Wyr({ socket, room, playerId }) {
   const [myChoice, setMyChoice] = useState(0);
   const [answered, setAnswered] = useState(false);
   const [over, setOver] = useState(null);
+  const [streak, setStreak] = useState(null);
   const w = room.wyr;
   const me = room.players.find(p => p.id === playerId);
   const isHost = me?.isHost;
@@ -21,8 +23,9 @@ export default function Wyr({ socket, room, playerId }) {
     const onReveal = (r) => { sound.play(r.match ? 'win' : 'tick'); if (r.match) burstConfetti(20); };
     const onOver = (o) => { setOver(o); burstConfetti(); sound.play('win'); };
     const onLobby = () => setOver(null);
-    socket.on('wyr:reveal', onReveal); socket.on('wyr:over', onOver); socket.on('game:toLobby', onLobby);
-    return () => { socket.off('wyr:reveal', onReveal); socket.off('wyr:over', onOver); socket.off('game:toLobby', onLobby); };
+    const onStreak = (st) => setStreak(st);
+    socket.on('wyr:reveal', onReveal); socket.on('wyr:over', onOver); socket.on('game:toLobby', onLobby); socket.on('duo:streak', onStreak);
+    return () => { socket.off('wyr:reveal', onReveal); socket.off('wyr:over', onOver); socket.off('game:toLobby', onLobby); socket.off('duo:streak', onStreak); };
   }, [socket]);
   useEffect(() => { setOptionA(''); setOptionB(''); setPrompt('Tu préfères…'); setMyChoice(0); setAnswered(false); }, [w?.round]);
 
@@ -38,12 +41,20 @@ export default function Wyr({ socket, room, playerId }) {
     const res = over || room.wyrResult || { affinity: 0, matches: 0, total: 0 };
     const msg = res.affinity >= 80 ? 'Âmes sœurs ! 💞' : res.affinity >= 50 ? 'De belles affinités !' : res.affinity >= 25 ? 'Vous êtes différents… et c\u2019est bien !' : 'Les opposés s\u2019attirent 😄';
     return (
-      <div className="text-center py-8 space-y-3">
-        <Heart className="h-12 w-12 mx-auto text-rose-400" />
-        <h3 className="font-display font-bold text-2xl">Affinité : {res.affinity}%</h3>
-        <p className="text-muted">Vous avez répondu pareil {res.matches} fois sur {res.total}.</p>
-        <p className="font-semibold">{msg}</p>
-        {isHost && <div className="flex gap-2 justify-center pt-2"><Button onClick={() => socket.emit('game:next')}>Rejouer</Button><Button variant="outline" onClick={() => socket.emit('game:lobby')}>Retour au salon</Button></div>}
+      <div className="py-4 space-y-4 max-w-lg mx-auto">
+        <div className="text-center">
+          <h3 className="font-display font-bold text-2xl">Affinité : {res.affinity}%</h3>
+          <p className="text-muted">{msg}</p>
+          {streak?.streak > 1 && <p className="text-sm text-warning font-semibold mt-1 inline-flex items-center gap-1"><Flame className="h-4 w-4" /> {streak.streak} jours de suite à jouer ensemble !</p>}
+        </div>
+        <ShareCard
+          title="Nos goûts à deux"
+          statLine={`${res.affinity}% d'affinité`}
+          subtitle={`${res.matches} réponses en commun sur ${res.total}${streak?.streak > 1 ? ` · ${streak.streak} jours de suite 🔥` : ''}`}
+          players={[{ name: me?.name, avatar: me?.avatar }, { name: (asker?.id === playerId ? chooser : asker)?.name, avatar: (asker?.id === playerId ? chooser : asker)?.avatar }]}
+          accent="#7c5cff" emoji="💛"
+        />
+        {isHost && <div className="flex gap-2 justify-center"><Button onClick={() => socket.emit('game:next')}>Rejouer</Button><Button variant="outline" onClick={() => socket.emit('game:lobby')}>Retour au salon</Button></div>}
       </div>
     );
   }

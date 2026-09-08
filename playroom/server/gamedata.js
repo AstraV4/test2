@@ -272,4 +272,30 @@ export const COUPLE_QUESTIONS = [
   { q: 'Pizza ou sushi ?', options: ['Pizza', 'Sushi'] },
   { q: 'La saison qui vous ressemble ?', options: ['Été', 'Hiver', 'Printemps', 'Automne'] },
   { q: 'Soirée jeux : plutôt…', options: ['Coopératif', 'Compétitif', 'Chill'] },
+  // Un peu plus "couple", mais mignon et correct :
+  { q: 'Le premier truc qu\u2019on remarque chez quelqu\u2019un ?', options: ['Le sourire', 'Les yeux', 'L\u2019humour', 'La voix'] },
+  { q: 'Un rendez-vous parfait, ce serait…', options: ['Un pique-nique', 'Une expo', 'Une soirée jeux', 'Une balade la nuit'] },
+  { q: 'Une qualité qui fait craquer ?', options: ['La gentillesse', 'L\u2019humour', 'La complicité', 'La confiance'] },
+  { q: 'Ta façon de montrer que tu tiens à quelqu\u2019un ?', options: ['Des petites attentions', 'Passer du temps', 'Des mots', 'Faire rire'] },
+  { q: 'Un slow ou une chanson qui bouge ?', options: ['Un slow', 'Une qui bouge'] },
+  { q: 'Le petit détail romantique que tu préfères ?', options: ['Un message le matin', 'Tenir la main', 'Un compliment', 'Une surprise'] },
+  { q: 'Si on partait à l\u2019aventure demain…', options: ['La mer', 'La forêt', 'Une grande ville', 'Les étoiles'] },
+  { q: 'Ce qui rend un moment inoubliable ?', options: ['Un fou rire', 'Une vraie discussion', 'Une première fois', 'Le silence à deux'] },
+  { q: 'Le surnom mignon, tu es…', options: ['Pour', 'Contre', 'Ça dépend'] },
+];
+
+// Paquet « flirt » : suggestif, taquin, romantique — mais jamais explicite.
+export const COUPLE_FLIRT = [
+  { q: 'Un premier baiser, ce serait plutôt…', options: ['Sous la pluie', 'Sur un toit la nuit', 'Devant un film', 'À l\u2019improviste'] },
+  { q: 'Ce qui te fait craquer en premier ?', options: ['Un regard', 'Un sourire', 'Une voix', 'Le sens de l\u2019humour'] },
+  { q: 'Une soirée en tête-à-tête, tu veux…', options: ['Cuisiner à deux', 'Se balader la nuit', 'Rester blottis', 'Danser dans le salon'] },
+  { q: 'Le petit geste qui fait fondre ?', options: ['Une main dans les cheveux', 'Un mot dans le cou', 'Une main tenue', 'Un regard qui s\u2019attarde'] },
+  { q: 'Ta déclaration idéale, c\u2019est…', options: ['Discrète et sincère', 'Une grande surprise', 'Écrite', 'Dite les yeux dans les yeux'] },
+  { q: 'On se rapproche plutôt…', options: ['Doucement', 'Impulsivement', 'Après un fou rire', 'Quand personne ne regarde'] },
+  { q: 'Un slow, tu…', options: ['J\u2019adore', 'Je suis timide', 'Seulement avec la bonne personne'] },
+  { q: 'Le lieu parfait pour un date romantique ?', options: ['Sous les étoiles', 'Un rooftop', 'Un coin secret', 'Chez soi, cosy'] },
+  { q: 'Ce qui rend quelqu\u2019un irrésistible ?', options: ['La confiance', 'La tendresse', 'Le mystère', 'La complicité'] },
+  { q: 'Tu préfères qu\u2019on te dise…', options: ['« Tu me plais »', '« Je pense à toi »', '« Tu me manques »', 'Rien, juste un regard'] },
+  { q: 'Après un date qui se passe bien, tu…', options: ['Envoies un message direct', 'Attends un peu (pour le style)', 'Proposes de se revoir vite'] },
+  { q: 'Le compliment qui te touche le plus ?', options: ['« Tu es magnifique »', '« J\u2019adore ton rire »', '« Je me sens bien avec toi »'] },
 ];

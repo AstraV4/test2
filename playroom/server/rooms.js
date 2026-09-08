@@ -1,5 +1,6 @@
 import { customAlphabet } from 'nanoid';
-import { pickImposterWord, IMPOSTER_THEME_LIST, DRAW_WORDS, buildPartyRound, BLUFF_QA, CAPTION_PROMPTS, QUIZ, WYR_SUGGEST, COUPLE_QUESTIONS } from './gamedata.js';
+import { pickImposterWord, IMPOSTER_THEME_LIST, DRAW_WORDS, buildPartyRound, BLUFF_QA, CAPTION_PROMPTS, QUIZ, WYR_SUGGEST, COUPLE_QUESTIONS, COUPLE_FLIRT } from './gamedata.js';
+import { recordDuoPlay } from './db.js';
 
 const genCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 5);
 
@@ -158,7 +159,7 @@ export class RoomManager {
     const playerId = socket.id;
     const room = {
       code, hostId: playerId, gameType: 'imposter', phase: 'lobby', round: 0,
-      settings: { imposters: 1, discussionSec: 90, rounds: 1, theme: 'Aléatoire', drawSec: 75, drawRounds: 1, partyRounds: 8, bluffRounds: 5, captionRounds: 5, wyrRounds: 8, coupleRounds: 10 },
+      settings: { imposters: 1, discussionSec: 90, rounds: 1, theme: 'Aléatoire', drawSec: 75, drawRounds: 1, partyRounds: 8, bluffRounds: 5, captionRounds: 5, wyrRounds: 8, coupleRounds: 10, coupleMode: 'mignon' },
       players: [{ id: playerId, name: sanitizeName(name), avatar: avatar || 'nebula', ready: false, connected: true, socketId: socket.id, lastChat: 0 }],
       votes: {}, roles: {}, clueOrder: [], clueIndex: 0, timer: null,
       scores: null, guessed: null, drawerId: null, word: null,
@@ -234,6 +235,7 @@ export class RoomManager {
     if (settings.captionRounds != null) s.captionRounds = clamp(parseInt(settings.captionRounds, 10) || s.captionRounds, 3, 10);
     if (settings.wyrRounds != null) s.wyrRounds = clamp(parseInt(settings.wyrRounds, 10) || s.wyrRounds, 4, 20);
     if (settings.coupleRounds != null) s.coupleRounds = clamp(parseInt(settings.coupleRounds, 10) || s.coupleRounds, 5, 15);
+    if (settings.coupleMode != null && ['mignon','flirt','mix'].includes(settings.coupleMode)) s.coupleMode = settings.coupleMode;
     this.emitRoom(room);
   }
 
@@ -261,6 +263,7 @@ export class RoomManager {
     else if (room.gameType === 'coupleduo') { this._beginCouple(room); }
     else if (DUEL_GAMES.has(room.gameType)) { this._beginDuel(room); }
     else this._beginRound(room);
+    if (isDuel) this._recordDuo(room);
     this._touchActivity(room);
   }
 
@@ -1030,10 +1033,12 @@ export class RoomManager {
   _beginCoupleRound(room) {
     this._clearTimer(room);
     room.coupleRound += 1;
-    let idx = Math.floor(Math.random() * COUPLE_QUESTIONS.length);
-    for (let i = 0; i < COUPLE_QUESTIONS.length && room.coupleUsed.has(idx); i++) idx = (idx + 1) % COUPLE_QUESTIONS.length;
+    const mode = room.settings.coupleMode || 'mignon';
+    const pool = mode === 'flirt' ? COUPLE_FLIRT : mode === 'mix' ? [...COUPLE_QUESTIONS, ...COUPLE_FLIRT] : COUPLE_QUESTIONS;
+    let idx = Math.floor(Math.random() * pool.length);
+    for (let i = 0; i < pool.length && room.coupleUsed.has(idx); i++) idx = (idx + 1) % pool.length;
     room.coupleUsed.add(idx);
-    const q = COUPLE_QUESTIONS[idx];
+    const q = pool[idx];
     room.couple = { question: q.q, options: q.options, answers: {}, reveal: null };
     room.phase = 'coupleAnswer';
     this.emitRoom(room);
@@ -1074,6 +1079,13 @@ export class RoomManager {
     this.emitRoom(room);
   }
 
+  _recordDuo(room) {
+    const socks = room.players.filter(p => p.connected).map(p => this.io.sockets.sockets.get(p.socketId));
+    const uids = socks.map(s => s?.data?.userId).filter(Boolean);
+    if (uids.length === 2) {
+      try { const r = recordDuoPlay(uids[0], uids[1]); this.io.to(room.code).emit('duo:streak', r); } catch { /* ignore */ }
+    }
+  }
   _duelNeed2(room) { const s = this.io.sockets.sockets.get(room.players.find(p => p.id === room.hostId)?.socketId); s?.emit('room:error', { message: 'Ce jeu se joue à 2 joueurs.' }); }
 
   /* ============================ CHAT ============================ */

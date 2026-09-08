@@ -46,3 +46,12 @@ npm run dev
 - Page profil public de chaque joueur (avatar, nom, bio, niveau, stats, succès), accessible en cliquant sur un joueur (amis, classements).
 - Amis en favoris (⭐, épinglés en haut de la liste).
 - Messagerie directe entre amis en temps réel.
+
+## Duo
+- Carte souvenir partageable en fin de partie à deux (image PNG téléchargeable/partageable) pour Compatibilité et Tu préfères.
+- Streak à deux : compteur de jours consécutifs joués ensemble, affiché en fin de partie et sur le profil public d'un ami.
+- Compatibilité enrichie de questions style couple (mignonnes et correctes).
+
+## Crush secret & flirt
+- Crush secret réciproque : sur le profil d'un ami, un bouton discret « J'ai un crush ». Ça reste 100% secret et ne se révèle QUE si l'autre a craqué aussi (révélation simultanée + notification temps réel). Aucune fuite possible dans le cas contraire.
+- Compatibilité : sélecteur d'ambiance Mignon / Flirt / Mix (le mode Flirt propose des questions plus taquines mais correctes).

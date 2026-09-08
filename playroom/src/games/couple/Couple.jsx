@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Heart, Check } from 'lucide-react';
+import { Heart, Check, Flame } from 'lucide-react';
 import { Avatar, Button, Tag, Spinner } from '../../components/ui/index.jsx';
 import { burstConfetti } from '../../components/PlayAgain.jsx';
+import ShareCard from '../../components/ShareCard.jsx';
 import { sound } from '../../lib/sound.js';
 
 // Compatibilité : répondez en même temps, plus vous répondez pareil, plus l'affinité monte.
 export default function Couple({ socket, room, playerId }) {
   const [answered, setAnswered] = useState(false);
   const [over, setOver] = useState(null);
+  const [streak, setStreak] = useState(null);
   const c = room.couple;
   const me = room.players.find(p => p.id === playerId);
   const opp = room.players.find(p => p.id !== playerId);
@@ -17,8 +19,9 @@ export default function Couple({ socket, room, playerId }) {
     const onReveal = (r) => { sound.play(r.match ? 'win' : 'tick'); if (r.match) burstConfetti(18); };
     const onOver = (o) => { setOver(o); burstConfetti(); sound.play('win'); };
     const onLobby = () => setOver(null);
-    socket.on('couple:reveal', onReveal); socket.on('couple:over', onOver); socket.on('game:toLobby', onLobby);
-    return () => { socket.off('couple:reveal', onReveal); socket.off('couple:over', onOver); socket.off('game:toLobby', onLobby); };
+    const onStreak = (st) => setStreak(st);
+    socket.on('couple:reveal', onReveal); socket.on('couple:over', onOver); socket.on('game:toLobby', onLobby); socket.on('duo:streak', onStreak);
+    return () => { socket.off('couple:reveal', onReveal); socket.off('couple:over', onOver); socket.off('game:toLobby', onLobby); socket.off('duo:streak', onStreak); };
   }, [socket]);
   useEffect(() => { setAnswered(false); }, [c?.round]);
 
@@ -29,12 +32,20 @@ export default function Couple({ socket, room, playerId }) {
     const res = over || room.couple?.result || { affinity: 0, matches: 0, total: 0 };
     const msg = res.affinity >= 80 ? 'Incroyable complicité ! 💞' : res.affinity >= 50 ? 'Belle entente !' : res.affinity >= 25 ? 'Vous vous complétez !' : 'Les opposés s\u2019attirent 😄';
     return (
-      <div className="text-center py-8 space-y-3">
-        <div className="relative inline-block"><Heart className="h-16 w-16 text-rose-400 fill-rose-400/30" /><span className="absolute inset-0 flex items-center justify-center font-display font-bold text-lg">{res.affinity}%</span></div>
-        <h3 className="font-display font-bold text-2xl">Compatibilité : {res.affinity}%</h3>
-        <p className="text-muted">Mêmes réponses {res.matches} fois sur {res.total}.</p>
-        <p className="font-semibold">{msg}</p>
-        {isHost && <div className="flex gap-2 justify-center pt-2"><Button onClick={() => socket.emit('game:next')}>Rejouer</Button><Button variant="outline" onClick={() => socket.emit('game:lobby')}>Retour au salon</Button></div>}
+      <div className="py-4 space-y-4 max-w-lg mx-auto">
+        <div className="text-center">
+          <h3 className="font-display font-bold text-2xl">Compatibilité : {res.affinity}%</h3>
+          <p className="text-muted">{msg}</p>
+          {streak?.streak > 1 && <p className="text-sm text-warning font-semibold mt-1 inline-flex items-center gap-1"><Flame className="h-4 w-4" /> {streak.streak} jours de suite à jouer ensemble !</p>}
+        </div>
+        <ShareCard
+          title="Notre compatibilité"
+          statLine={`${res.affinity}% 💞`}
+          subtitle={`${res.matches} réponses en commun sur ${res.total}${streak?.streak > 1 ? ` · ${streak.streak} jours de suite 🔥` : ''}`}
+          players={[{ name: me?.name, avatar: me?.avatar }, { name: opp?.name, avatar: opp?.avatar }]}
+          accent="#ec4899" emoji="💞"
+        />
+        {isHost && <div className="flex gap-2 justify-center"><Button onClick={() => socket.emit('game:next')}>Rejouer</Button><Button variant="outline" onClick={() => socket.emit('game:lobby')}>Retour au salon</Button></div>}
       </div>
     );
   }
