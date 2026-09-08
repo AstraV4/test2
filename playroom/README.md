@@ -1,6 +1,6 @@
 # 🎮 PLAYROOM
 
-Plateforme de mini-jeux en ligne. 14 jeux : 9 solo + 5 multijoueur temps réel (Imposteur avec choix du thème, Draw & Guess avec choix du mot + indices, Party, Bluff, Caption Battle). Chat de salon (anti-spam + désactivation par phase), système d'amis (statut en ligne + invitations), modération (blocage/signalement), Saisons (4 semaines, XP de saison + classement), comptes, XP, niveaux, titres, succès, classements et défi quotidien. Design premium : fond immersif animé, cartes à ambiance, transitions, confettis, podiums.
+Plateforme de mini-jeux en ligne. 19 jeux : 9 solo + 5 multijoueur à plusieurs (Imposteur, Draw & Guess, Party, Bluff, Caption Battle) + 5 duels 1 contre 1 (Morpion, Puissance 4, Pierre-Feuille-Ciseaux, Duel de Réflexe, Duel de Calcul). Chat de salon, système d'amis (statut en ligne + invitations), modération (blocage/signalement), Saisons, comptes, XP, niveaux, titres, succès, classements et défi quotidien. Design premium : fond immersif animé, cartes à ambiance, transitions, confettis, podiums.
 
 ## Stack
 - **Front** : React 18 + Vite + Tailwind + React Router + lucide-react + socket.io-client

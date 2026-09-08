@@ -1,4 +1,4 @@
-import { Zap, Brain, Hash, Shuffle, HelpCircle, Sparkles, Ghost, Calculator, Keyboard, Grid3x3, Palette, PartyPopper, Feather, MessageSquare } from 'lucide-react';
+import { Zap, Brain, Hash, Shuffle, HelpCircle, Sparkles, Ghost, Calculator, Keyboard, Grid3x3, Palette, PartyPopper, Feather, MessageSquare, Swords, Hand, CircleDot, Divide } from 'lucide-react';
 
 // Métadonnées communes à tous les jeux. Ajouter un jeu = ajouter une entrée ici
 // + un composant dans src/games/<id>/. Le reste (fiche, routes, cartes) est générique.
@@ -116,6 +116,46 @@ export const GAMES = [
     players: '3-12', duration: '10-15 min', difficulty: 'Facile', avgScore: null, tags: ['Multijoueur', 'Entre amis', 'Créatif'],
     featured: false, isNew: true,
   },
+  {
+    id: 'morpion', slug: 'morpion', name: 'Morpion', icon: Hash,
+    tagline: 'Le classique aligne-3, en duel.',
+    description: "Le tic-tac-toe en 1 contre 1 : aligne trois symboles avant ton adversaire. Au meilleur des manches (premier à 3).",
+    color: ['#7c5cff', '#22d3ee'], ambiance: 'grid', mode: 'multi', category: ['Duel', 'Multijoueur', 'Réflexion'],
+    players: '2', duration: '2-5 min', difficulty: 'Facile', avgScore: null, tags: ['Duel', '1v1'],
+    featured: false, isNew: true,
+  },
+  {
+    id: 'connect4', slug: 'puissance-4', name: 'Puissance 4', icon: CircleDot,
+    tagline: 'Aligne 4 jetons avant l\u2019adversaire.',
+    description: "Fais tomber tes jetons et aligne-en quatre (horizontal, vertical ou diagonale) avant ton adversaire. Duel au meilleur des manches.",
+    color: ['#f43f5e', '#facc15'], ambiance: 'grid', mode: 'multi', category: ['Duel', 'Multijoueur', 'Réflexion'],
+    players: '2', duration: '3-6 min', difficulty: 'Moyen', avgScore: null, tags: ['Duel', '1v1'],
+    featured: true, isNew: true,
+  },
+  {
+    id: 'rps', slug: 'pierre-feuille-ciseaux', name: 'Pierre-Feuille-Ciseaux', icon: Hand,
+    tagline: 'Le duel de bluff instantané.',
+    description: "Pierre, feuille ou ciseaux : choisissez en même temps, révélation simultanée. Premier à 3 manches gagnées.",
+    color: ['#34d399', '#588cff'], ambiance: 'mystery', mode: 'multi', category: ['Duel', 'Multijoueur', 'Parties rapides'],
+    players: '2', duration: '1-3 min', difficulty: 'Facile', avgScore: null, tags: ['Duel', '1v1', 'Rapide'],
+    featured: false, isNew: true,
+  },
+  {
+    id: 'reflexduel', slug: 'duel-reflexe', name: 'Duel de Réflexe', icon: Zap,
+    tagline: 'Le plus rapide au signal gagne.',
+    description: "Attendez le vert puis tapez le plus vite possible. Plus rapide que l'adversaire = manche gagnée ; tapé trop tôt = manche perdue. Premier à 5.",
+    color: ['#facc15', '#f97316'], ambiance: 'speed', mode: 'multi', category: ['Duel', 'Multijoueur', 'Parties rapides'],
+    players: '2', duration: '1-2 min', difficulty: 'Facile', avgScore: null, tags: ['Duel', '1v1', 'Rapide'],
+    featured: true, isNew: true,
+  },
+  {
+    id: 'mathduel', slug: 'duel-calcul', name: 'Duel de Calcul', icon: Divide,
+    tagline: 'Le premier à répondre juste marque.',
+    description: "Même opération pour les deux joueurs : le premier à donner la bonne réponse marque le point. Premier à 5 l'emporte.",
+    color: ['#38bdf8', '#6366f1'], ambiance: 'number', mode: 'multi', category: ['Duel', 'Multijoueur', 'Parties rapides'],
+    players: '2', duration: '2-4 min', difficulty: 'Moyen', avgScore: null, tags: ['Duel', '1v1', 'Rapide'],
+    featured: false, isNew: true,
+  },
 ];
 
 export const gameById = (id) => GAMES.find(g => g.id === id);
@@ -128,6 +168,7 @@ export const CATEGORIES = [
   { key: 'Parties rapides', emoji: '⚡', match: (g) => g.category.includes('Parties rapides') },
   { key: 'Pour réfléchir', emoji: '🧠', match: (g) => g.category.includes('Pour réfléchir') },
   { key: 'Entre amis', emoji: '😂', match: (g) => g.category.includes('Entre amis') || g.mode === 'multi' },
+  { key: 'Duel', emoji: '⚔️', match: (g) => g.category.includes('Duel') },
   { key: 'Compétitif', emoji: '🏆', match: (g) => g.category.includes('Compétitif') },
   { key: 'Multijoueur', emoji: '👥', match: (g) => g.mode === 'multi' },
   { key: 'Jeux de mots', emoji: '✍️', match: (g) => g.category.includes('Jeux de mots') },

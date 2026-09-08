@@ -352,6 +352,11 @@ io.on('connection', (socket) => {
   socket.on('bluff:pick', (d) => rooms.bluffPick(socket, d?.index));
   socket.on('caption:answer', (d) => rooms.captionAnswer(socket, d?.text));
   socket.on('caption:vote', (d) => rooms.captionVote(socket, d?.targetId));
+  socket.on('duel:cell', (d) => rooms.duelCell(socket, d?.cell));
+  socket.on('duel:col', (d) => rooms.duelCol(socket, d?.col));
+  socket.on('duel:rps', (d) => rooms.duelRps(socket, d?.choice));
+  socket.on('duel:tap', () => rooms.duelTap(socket));
+  socket.on('duel:answer', (d) => rooms.duelAnswer(socket, d?.value));
 
   // Invitation directe dans son salon
   socket.on('invite:send', (d) => {

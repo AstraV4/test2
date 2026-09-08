@@ -11,8 +11,11 @@ import DrawGuess from '../games/draw/DrawGuess.jsx';
 import Party from '../games/party/Party.jsx';
 import Bluff from '../games/bluff/Bluff.jsx';
 import Caption from '../games/caption/Caption.jsx';
+import Duel from '../games/duel/Duel.jsx';
 import Chat from '../components/Chat.jsx';
 import { sound } from '../lib/sound.js';
+
+const DUEL_TYPES = ['morpion', 'connect4', 'rps', 'reflexduel', 'mathduel'];
 
 export default function Room() {
   const { code: codeParam } = useParams();
@@ -108,6 +111,8 @@ export default function Room() {
             ? (room.bluff && <Tag color="warning">Manche {room.bluff.turn}/{room.bluff.total}</Tag>)
             : room.gameType === 'caption'
             ? (room.caption && <Tag color="warning">Manche {room.caption.turn}/{room.caption.total}</Tag>)
+            : DUEL_TYPES.includes(room.gameType)
+            ? null
             : <Tag color="warning">Manche {room.round}/{room.settings.rounds}</Tag>)}
         </div>
         <div className="grid sm:grid-cols-2 gap-2">
@@ -160,6 +165,13 @@ export default function Room() {
           </Card>
           <Chat socket={getSocket()} room={room} playerId={playerId} />
         </div>
+      ) : DUEL_TYPES.includes(room.gameType) ? (
+        <div className="grid lg:grid-cols-3 gap-4">
+          <Card className="p-5 lg:col-span-2">
+            <Duel socket={getSocket()} room={room} playerId={playerId} />
+          </Card>
+          <Chat socket={getSocket()} room={room} playerId={playerId} />
+        </div>
       ) : (
         <div className="grid lg:grid-cols-3 gap-4">
           <Card className="p-5 lg:col-span-2">
@@ -175,31 +187,42 @@ export default function Room() {
 function LobbyControls({ room, me, isHost }) {
   const socket = getSocket();
   const s = room.settings;
-  const canStart = room.players.length >= 3;
   const maxImp = Math.max(1, Math.floor(room.players.length / 3));
   const isDraw = room.gameType === 'draw';
   const isParty = room.gameType === 'party';
   const isBluff = room.gameType === 'bluff';
   const isCaption = room.gameType === 'caption';
+  const isDuel = DUEL_TYPES.includes(room.gameType);
+  const canStart = isDuel ? room.players.length === 2 : room.players.length >= 3;
 
   return (
     <Card className="p-5 space-y-4">
       {/* Choix du jeu */}
       <div>
-        <h3 className="font-semibold mb-2 text-sm text-muted">Jeu</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-          {[{ id: 'imposter', emo: '🕵️', name: 'Imposteur' }, { id: 'draw', emo: '🎨', name: 'Draw & Guess' }, { id: 'party', emo: '🎉', name: 'Party' }, { id: 'bluff', emo: '🪶', name: 'Bluff' }, { id: 'caption', emo: '💬', name: 'Caption' }].map(g => (
+        <h3 className="font-semibold mb-2 text-sm text-muted">À plusieurs (3+)</h3>
+        <div className="grid grid-cols-5 gap-2">
+          {[{ id: 'imposter', emo: '🕵️', name: 'Imposteur' }, { id: 'draw', emo: '🎨', name: 'Draw' }, { id: 'party', emo: '🎉', name: 'Party' }, { id: 'bluff', emo: '🪶', name: 'Bluff' }, { id: 'caption', emo: '💬', name: 'Caption' }].map(g => (
             <button key={g.id} disabled={!isHost} onClick={() => socket.emit('room:setGame', { gameType: g.id })}
-              className={`rounded-xl border p-2.5 text-center transition-all ${room.gameType === g.id ? 'border-brand bg-brand/10' : 'border-border bg-surface-2 hover:border-brand/40'} ${!isHost ? 'opacity-70 cursor-default' : ''}`}>
-              <div className="text-xl">{g.emo}</div>
-              <div className="font-semibold text-xs mt-1">{g.name}</div>
+              className={`rounded-xl border p-2 text-center transition-all ${room.gameType === g.id ? 'border-brand bg-brand/10' : 'border-border bg-surface-2 hover:border-brand/40'} ${!isHost ? 'opacity-70 cursor-default' : ''}`}>
+              <div className="text-lg">{g.emo}</div>
+              <div className="font-semibold text-[11px] mt-0.5">{g.name}</div>
             </button>
           ))}
         </div>
-        {!isHost && <p className="text-[11px] text-muted mt-1">Seul l'hôte peut choisir le jeu.</p>}
+        <h3 className="font-semibold mb-2 mt-3 text-sm text-muted">En duel (2 joueurs)</h3>
+        <div className="grid grid-cols-5 gap-2">
+          {[{ id: 'morpion', emo: '#️⃣', name: 'Morpion' }, { id: 'connect4', emo: '🔴', name: 'Puiss.4' }, { id: 'rps', emo: '✊', name: 'PFC' }, { id: 'reflexduel', emo: '⚡', name: 'Réflexe' }, { id: 'mathduel', emo: '➗', name: 'Calcul' }].map(g => (
+            <button key={g.id} disabled={!isHost} onClick={() => socket.emit('room:setGame', { gameType: g.id })}
+              className={`rounded-xl border p-2 text-center transition-all ${room.gameType === g.id ? 'border-brand bg-brand/10' : 'border-border bg-surface-2 hover:border-brand/40'} ${!isHost ? 'opacity-70 cursor-default' : ''}`}>
+              <div className="text-lg">{g.emo}</div>
+              <div className="font-semibold text-[11px] mt-0.5">{g.name}</div>
+            </button>
+          ))}
+        </div>
+        {!isHost && <p className="text-[11px] text-muted mt-2">Seul l'hôte peut choisir le jeu.</p>}
       </div>
 
-      {isHost && (
+      {isHost && !isDuel && (
         <div>
           <h3 className="font-semibold inline-flex items-center gap-2 mb-3 text-sm text-muted"><Settings className="h-4 w-4" /> Paramètres</h3>
           {isDraw ? (
@@ -271,7 +294,7 @@ function LobbyControls({ room, me, isHost }) {
           <Button className="flex-1" disabled={!canStart} onClick={() => socket.emit('game:start')}><Play className="h-4 w-4" /> Lancer</Button>
         )}
       </div>
-      {isHost && !canStart && <p className="text-center text-xs text-muted">Il faut au moins 3 joueurs pour lancer.</p>}
+      {isHost && !canStart && <p className="text-center text-xs text-muted">{isDuel ? 'Les duels se jouent exactement à 2 joueurs.' : 'Il faut au moins 3 joueurs pour lancer.'}</p>}
       {!isHost && <p className="text-center text-xs text-muted">En attente que l'hôte lance la partie…</p>}
     </Card>
   );

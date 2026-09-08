@@ -96,6 +96,18 @@ export class RoomManager {
         reveal: room.partyReveal || null,        // rempli seulement après révélation
       };
     }
+    if (DUEL_GAMES.has(room.gameType) && room.duel) {
+      const d = room.duel;
+      base.duel = {
+        game: d.game, target: d.target, scores: d.scores, round: d.round,
+        turn: d.turn || null, roundOver: !!d.roundOver, roundWinner: d.roundWinner || null,
+        matchOver: !!d.matchOver, winnerId: d.winnerId || null,
+        symbols: d.symbols || null, board: d.board || null,
+        chosenIds: d.choices ? Object.keys(d.choices) : [], reveal: d.reveal || null,
+        state: d.state || null, lastRt: d.lastRt || null,
+        problem: d.problem ? { text: d.problem.text } : null,
+      };
+    }
     return base;
   }
 
@@ -140,7 +152,7 @@ export class RoomManager {
 
   setGameType(socket, type) {
     const room = this._room(socket); if (!room || !this._isHost(room, socket) || room.phase !== 'lobby') return;
-    if (['imposter', 'draw', 'party', 'bluff', 'caption'].includes(type)) { room.gameType = type; this.emitRoom(room); this._touchActivity(room); }
+    if (['imposter', 'draw', 'party', 'bluff', 'caption', 'morpion', 'connect4', 'rps', 'reflexduel', 'mathduel'].includes(type)) { room.gameType = type; this.emitRoom(room); this._touchActivity(room); }
   }
 
   // Renvoie l'état privé courant à un joueur qui (ré)affiche le jeu.
@@ -194,11 +206,14 @@ export class RoomManager {
 
   startGame(socket) {
     const room = this._room(socket); if (!room || !this._isHost(room, socket)) return;
-    if (room.players.length < 3) return socket.emit('room:error', { message: 'Il faut au moins 3 joueurs.' });
+    const isDuel = ['morpion', 'connect4', 'rps', 'reflexduel', 'mathduel'].includes(room.gameType);
+    if (isDuel) { if (room.players.length !== 2) return socket.emit('room:error', { message: 'Ce jeu se joue exactement à 2 joueurs.' }); }
+    else if (room.players.length < 3) return socket.emit('room:error', { message: 'Il faut au moins 3 joueurs.' });
     if (room.gameType === 'draw') this._beginDraw(room);
     else if (room.gameType === 'party') this._beginParty(room);
     else if (room.gameType === 'bluff') this._beginBluff(room);
     else if (room.gameType === 'caption') this._beginCaption(room);
+    else if (DUEL_GAMES.has(room.gameType)) { this._beginDuel(room); }
     else this._beginRound(room);
     this._touchActivity(room);
   }
@@ -273,6 +288,7 @@ export class RoomManager {
     if (room.gameType === 'party') { this._nextParty(room); return; }
     if (room.gameType === 'bluff') { this._nextBluff(room); return; }
     if (room.gameType === 'caption') { this._nextCaption(room); return; }
+    if (DUEL_GAMES.has(room.gameType)) { if (room.duel && room.duel.matchOver) this._beginDuel(room); return; }
     if (room.round >= room.settings.rounds) { this._toLobby(room); return; }
     this._beginRound(room);
   }
@@ -283,6 +299,7 @@ export class RoomManager {
     room.scores = null; room.guessed = null; room.drawerId = null; room.word = null;
     room.partyRound = null; room.partyReveal = null; room.partyTurn = 0; room.partyUsed = null;
     room.bluff = null; room.caption = null;
+    room.duel = null;
     room.players.forEach(p => { p.ready = false; p.eliminated = false; });
     this.io.to(room.code).emit('game:toLobby');
     this.emitRoom(room);
@@ -657,10 +674,95 @@ export class RoomManager {
     this.emitRoom(room);
   }
 
+  /* ============================ DUELS (1 contre 1) ============================ */
+  _beginDuel(room) {
+    const ids = room.players.filter(p => p.connected).map(p => p.id);
+    if (ids.length !== 2) { const s = this.io.sockets.sockets.get(room.players.find(p => p.id === room.hostId)?.socketId); s?.emit('room:error', { message: 'Ce jeu se joue exactement à 2 joueurs.' }); return; }
+    const target = (room.gameType === 'reflexduel' || room.gameType === 'mathduel') ? 5 : 3;
+    room.duel = { game: room.gameType, p: [ids[0], ids[1]], target, scores: { [ids[0]]: 0, [ids[1]]: 0 }, round: 0, matchOver: false, winnerId: null };
+    room.phase = 'duel';
+    this._duelStartRound(room);
+  }
+  _duelStartRound(room) {
+    this._clearTimer(room);
+    const d = room.duel; d.round += 1; d.roundOver = false; d.roundWinner = null; d.reveal = null; d.lastRt = null;
+    const [a, b] = d.p;
+    const starter = d.p[(d.round - 1) % 2]; // alterne qui commence
+    if (d.game === 'morpion') { d.board = Array(9).fill(null); d.symbols = { [a]: 'X', [b]: 'O' }; d.turn = starter; }
+    else if (d.game === 'connect4') { d.board = Array(42).fill(null); d.symbols = { [a]: 'R', [b]: 'J' }; d.turn = starter; }
+    else if (d.game === 'rps') { d.choices = {}; d.turn = null; }
+    else if (d.game === 'reflexduel') {
+      d.state = 'waiting'; d.turn = null; d.goAt = null;
+      room.duelGoTimer = setTimeout(() => { if (room.duel !== d || d.roundOver) return; d.state = 'go'; d.goAt = Date.now(); this.io.to(room.code).emit('duel:go', {}); this.emitRoom(room); }, 1500 + Math.random() * 2800);
+    }
+    else if (d.game === 'mathduel') { d.problem = makeMath(d.round); d.turn = null; }
+    this.emitRoom(room);
+  }
+  _duelWin(room, winnerId, extra = {}) {
+    const d = room.duel; if (!d || d.roundOver) return;
+    d.roundOver = true; d.roundWinner = winnerId; // winnerId peut être 'draw'
+    if (winnerId && winnerId !== 'draw') d.scores[winnerId] = (d.scores[winnerId] || 0) + 1;
+    if (extra.rt != null) d.lastRt = extra.rt;
+    if (extra.reveal) d.reveal = extra.reveal;
+    if (winnerId && winnerId !== 'draw' && d.scores[winnerId] >= d.target) {
+      d.matchOver = true; d.winnerId = winnerId; room.phase = 'duelOver';
+      this.io.to(room.code).emit('duel:over', { winnerId });
+      this.emitRoom(room);
+    } else {
+      this.emitRoom(room);
+      room.duelTimer = setTimeout(() => this._duelStartRound(room), 2600);
+    }
+  }
+  duelCell(socket, cell) {
+    const room = this._room(socket); const d = room?.duel; if (!room || !d || d.game !== 'morpion' || room.phase !== 'duel' || d.roundOver) return;
+    const me = this._me(room, socket); if (!me || me.id !== d.turn) return;
+    const i = parseInt(cell, 10); if (!(i >= 0 && i < 9) || d.board[i]) return;
+    d.board[i] = d.symbols[me.id];
+    const w = ticWinner(d.board);
+    if (w) return this._duelWin(room, me.id, { line: w });
+    if (d.board.every(Boolean)) return this._duelWin(room, 'draw');
+    d.turn = d.p.find(x => x !== me.id); this.emitRoom(room);
+  }
+  duelCol(socket, col) {
+    const room = this._room(socket); const d = room?.duel; if (!room || !d || d.game !== 'connect4' || room.phase !== 'duel' || d.roundOver) return;
+    const me = this._me(room, socket); if (!me || me.id !== d.turn) return;
+    const c = parseInt(col, 10); if (!(c >= 0 && c < 7)) return;
+    let placed = -1;
+    for (let r = 5; r >= 0; r--) { const idx = r * 7 + c; if (!d.board[idx]) { d.board[idx] = d.symbols[me.id]; placed = idx; break; } }
+    if (placed === -1) return; // colonne pleine
+    if (connect4Win(d.board, placed)) return this._duelWin(room, me.id);
+    if (d.board.every(Boolean)) return this._duelWin(room, 'draw');
+    d.turn = d.p.find(x => x !== me.id); this.emitRoom(room);
+  }
+  duelRps(socket, choice) {
+    const room = this._room(socket); const d = room?.duel; if (!room || !d || d.game !== 'rps' || room.phase !== 'duel' || d.roundOver) return;
+    const me = this._me(room, socket); if (!me) return;
+    if (!['pierre', 'feuille', 'ciseaux'].includes(choice)) return;
+    d.choices[me.id] = choice; this.emitRoom(room);
+    if (Object.keys(d.choices).length === 2) {
+      const [a, b] = d.p; const ca = d.choices[a], cb = d.choices[b];
+      const beats = { pierre: 'ciseaux', feuille: 'pierre', ciseaux: 'feuille' };
+      let winner = 'draw'; if (ca !== cb) winner = beats[ca] === cb ? a : b;
+      this._duelWin(room, winner, { reveal: { choices: { ...d.choices } } });
+    }
+  }
+  duelTap(socket) {
+    const room = this._room(socket); const d = room?.duel; if (!room || !d || d.game !== 'reflexduel' || room.phase !== 'duel' || d.roundOver) return;
+    const me = this._me(room, socket); if (!me) return;
+    if (d.state === 'waiting') { const opp = d.p.find(x => x !== me.id); return this._duelWin(room, opp, { falseStart: true }); } // faux départ
+    if (d.state === 'go') { const rt = Date.now() - (d.goAt || Date.now()); return this._duelWin(room, me.id, { rt }); }
+  }
+  duelAnswer(socket, value) {
+    const room = this._room(socket); const d = room?.duel; if (!room || !d || d.game !== 'mathduel' || room.phase !== 'duel' || d.roundOver) return;
+    const me = this._me(room, socket); if (!me) return;
+    if (parseInt(value, 10) === d.problem.answer) this._duelWin(room, me.id);
+  }
+
   /* ============================ CHAT ============================ */
   _chatAllowed(room) {
     if (room.gameType === 'draw') return true; // le chat sert aussi à deviner
     if (room.gameType === 'party' || room.gameType === 'bluff' || room.gameType === 'caption') return true; // social
+    if (DUEL_GAMES.has(room.gameType)) return true; // 1v1 : chat libre
     // Imposteur : chat libre au lobby, en discussion et au résultat ; bloqué pendant reveal/indices/vote
     return ['lobby', 'discussion', 'result'].includes(room.phase);
   }
@@ -693,6 +795,10 @@ export class RoomManager {
     if (me.id === room.hostId) { const next = room.players.find(p => p.connected && p.socketId !== socket.id); if (next) room.hostId = next.id; }
     if (room.players.length === 0 || room.players.every(p => !p.connected)) { this._clearTimer(room); this.rooms.delete(room.code); return; }
     this._clearActivity(socket);
+    if (DUEL_GAMES.has(room.gameType) && room.duel && !room.duel.matchOver && (room.phase === 'duel' || room.phase === 'duelOver')) {
+      const remaining = room.players.find(p => p.connected);
+      if (remaining) { room.duel.matchOver = true; room.duel.winnerId = remaining.id; room.phase = 'duelOver'; this._clearTimer(room); this.io.to(room.code).emit('duel:over', { winnerId: remaining.id, forfeit: true }); this.emitRoom(room); return; }
+    }
     if (wasDrawer) { this._endDrawTurn(room, 'drawerLeft'); return; }
     this.emitRoom(room);
   }
@@ -704,7 +810,7 @@ export class RoomManager {
     this.io.to(room.code).emit('game:timer', { endsAt: room.endsAt, phase: room.phase });
     room.timer = setTimeout(fn, ms);
   }
-  _clearTimer(room) { if (room.timer) { clearTimeout(room.timer); room.timer = null; } if (room.hintTimer) { clearTimeout(room.hintTimer); room.hintTimer = null; } room.endsAt = null; }
+  _clearTimer(room) { if (room.timer) { clearTimeout(room.timer); room.timer = null; } if (room.hintTimer) { clearTimeout(room.hintTimer); room.hintTimer = null; } if (room.duelTimer) { clearTimeout(room.duelTimer); room.duelTimer = null; } if (room.duelGoTimer) { clearTimeout(room.duelGoTimer); room.duelGoTimer = null; } room.endsAt = null; }
   _sockOf(room, playerId) { const p = room.players.find(x => x.id === playerId); return p ? p.socketId : null; }
 }
 
@@ -717,3 +823,33 @@ function shuffle(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Mat
 function pickN(arr, n) { return shuffle([...arr]).slice(0, n); }
 function isLetter(c) { return /[a-zA-Z0-9À-ÿ]/.test(c); }
 function buildPattern(word, revealed) { return [...word].map((c, i) => (isLetter(c) ? (revealed.has(i) ? c : '_') : c)).join(''); }
+
+const DUEL_GAMES = new Set(['morpion', 'connect4', 'rps', 'reflexduel', 'mathduel']);
+function ticWinner(b) {
+  const L = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  for (const [x,y,z] of L) if (b[x] && b[x] === b[y] && b[y] === b[z]) return [x,y,z];
+  return null;
+}
+function connect4Win(b, idx) {
+  const r0 = Math.floor(idx/7), c0 = idx%7, s = b[idx];
+  const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+  for (const [dr,dc] of dirs) {
+    let count = 1;
+    for (const sign of [1,-1]) {
+      let r = r0+dr*sign, c = c0+dc*sign;
+      while (r>=0&&r<6&&c>=0&&c<7&&b[r*7+c]===s) { count++; r+=dr*sign; c+=dc*sign; }
+    }
+    if (count>=4) return true;
+  }
+  return false;
+}
+function makeMath(round) {
+  const lvl = Math.min(6, Math.floor(round/3));
+  const ops = lvl < 2 ? ['+','-'] : ['+','-','×'];
+  const op = ops[Math.floor(Math.random()*ops.length)];
+  let a,b;
+  if (op==='×') { a=2+Math.floor(Math.random()*(6+lvl)); b=2+Math.floor(Math.random()*(6+lvl)); }
+  else { a=5+Math.floor(Math.random()*(15+lvl*6)); b=1+Math.floor(Math.random()*(15+lvl*5)); if(op==='-'&&b>a)[a,b]=[b,a]; }
+  const answer = op==='+'?a+b:op==='-'?a-b:a*b;
+  return { text: `${a} ${op} ${b}`, answer };
+}
