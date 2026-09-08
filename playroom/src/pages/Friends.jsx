@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { UserPlus, Users2, Search, Check, X, UserMinus, Gamepad2, Clock, Lock, Ban, Flag } from 'lucide-react';
+import { UserPlus, Users2, Search, Check, X, UserMinus, Gamepad2, Clock, Lock, Ban, Flag, Star } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useFriends, activityLabel } from '../context/FriendsContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
@@ -101,14 +101,17 @@ export default function Friends() {
               const st = activityLabel(f);
               return (
                 <div key={f.id} className="flex items-center gap-3 rounded-xl bg-surface-2 px-3 py-2.5">
-                  <div className="relative">
+                  <button onClick={() => friends.favorite(f.id, !f.favorite)} title={f.favorite ? 'Retirer des favoris' : 'Mettre en favori'} className={`${f.favorite ? 'text-warning' : 'text-muted hover:text-warning'}`}>
+                    <Star className={`h-4 w-4 ${f.favorite ? 'fill-warning' : ''}`} />
+                  </button>
+                  <button onClick={() => nav(`/u/${f.id}`)} className="relative">
                     <Avatar name={f.avatar} label={f.username} size={38} />
                     <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-surface ${st.dot}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold truncate">{f.username} <span className="text-xs text-muted">· Nv.{f.level}</span></div>
+                  </button>
+                  <button onClick={() => nav(`/u/${f.id}`)} className="flex-1 min-w-0 text-left">
+                    <div className="text-sm font-semibold truncate hover:text-brand transition-colors">{f.displayName || f.username} <span className="text-xs text-muted">· Nv.{f.level}</span></div>
                     <div className={`text-xs ${st.color}`}>{st.text}</div>
-                  </div>
+                  </button>
                   {st.code && <Button size="sm" variant="outline" onClick={() => { try { sessionStorage.setItem('pr_identity', JSON.stringify({ name: user.username, avatar: user.avatar })); } catch { /* ignore */ } nav(`/salon/${st.code}`); }}><Gamepad2 className="h-4 w-4" /> Rejoindre</Button>}
                   <button onClick={async () => { await friends.report(f.id, 'signalé'); toast.success('Signalement envoyé. Merci.'); }} title="Signaler" className="text-muted hover:text-warning p-2"><Flag className="h-4 w-4" /></button>
                   <button onClick={async () => { if (confirm(`Bloquer ${f.username} ? Vous ne serez plus amis.`)) { await friends.block(f.id); toast.info(`${f.username} bloqué.`); } }} title="Bloquer" className="text-muted hover:text-danger p-2"><Ban className="h-4 w-4" /></button>

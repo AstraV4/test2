@@ -253,3 +253,23 @@ export const WYR_SUGGEST = [
   ['la pizza', 'les burgers'], ['l\u2019été', 'l\u2019hiver'], ['les films', 'les séries'],
   ['le thé', 'le café'], ['la plage', 'la piscine'], ['lire', 'jouer'],
 ];
+
+/* ---------------- Compatibilité (Duo / Couple) ---------------- */
+// Questions mignonnes à répondre en même temps : plus vous répondez pareil, plus l'affinité monte.
+export const COUPLE_QUESTIONS = [
+  { q: 'Soirée idéale ensemble ?', options: ['Ciné-canapé', 'Sortie dehors', 'Jeux à deux', 'Resto'] },
+  { q: 'Plutôt team…', options: ['Sucré', 'Salé'] },
+  { q: 'Vacances de rêve ?', options: ['Plage', 'Montagne', 'Ville', 'Road-trip'] },
+  { q: 'Un dimanche parfait, c\u2019est…', options: ['Grasse matinée', 'Balade', 'Cuisine', 'Rien faire'] },
+  { q: 'Animal de compagnie idéal ?', options: ['Chien', 'Chat', 'Aucun', 'Original'] },
+  { q: 'Pour un ciné, on choisit…', options: ['Comédie', 'Action', 'Horreur', 'Animation'] },
+  { q: 'Le matin, vous êtes…', options: ['Du matin', 'Du soir'] },
+  { q: 'Cadeau qui fait plaisir ?', options: ['Une surprise', 'Une expérience', 'Un objet utile', 'Fait main'] },
+  { q: 'Musique en voiture ?', options: ['On chante fort', 'Douce', 'Podcast', 'Silence'] },
+  { q: 'Le plus important dans un duo ?', options: ['Rire ensemble', 'Confiance', 'Aventures', 'Douceur'] },
+  { q: 'Boisson chaude préférée ?', options: ['Thé', 'Café', 'Chocolat chaud', 'Rien'] },
+  { q: 'Un week-end surprise, tu veux…', options: ['Être surpris', 'Tout organiser', 'Décider à deux'] },
+  { q: 'Pizza ou sushi ?', options: ['Pizza', 'Sushi'] },
+  { q: 'La saison qui vous ressemble ?', options: ['Été', 'Hiver', 'Printemps', 'Automne'] },
+  { q: 'Soirée jeux : plutôt…', options: ['Coopératif', 'Compétitif', 'Chill'] },
+];

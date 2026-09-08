@@ -4,6 +4,7 @@ import { api } from '../lib/api.js';
 import { GAMES } from '../games/registry.js';
 import { Card, Avatar, Tag, LoadingBlock, EmptyState, Progress } from '../components/ui/index.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useNavigate } from 'react-router-dom';
 
 const SOLO_GAMES = GAMES.filter(g => g.mode === 'solo');
 const PERIODS = [{ id: 'all', label: 'Général' }, { id: 'week', label: 'Semaine' }, { id: 'day', label: 'Jour' }];
@@ -16,6 +17,7 @@ function timeLeft(endsAt) {
 
 export default function Leaderboards() {
   const { user } = useAuth();
+  const nav = useNavigate();
   const [game, setGame] = useState('xp');
   const [period, setPeriod] = useState('all');
   const [data, setData] = useState(null);
@@ -104,8 +106,7 @@ export default function Leaderboards() {
               return (
                 <div key={r.userId} className={`flex items-center gap-3 px-5 py-3 ${mine ? 'bg-brand/10' : ''}`}>
                   <span className="w-6 text-center font-bold text-muted">{i < 3 ? ['🥇', '🥈', '🥉'][i] : r.rank}</span>
-                  <Avatar name={r.avatar} label={r.username} size={34} />
-                  <span className="font-semibold flex-1 truncate">{r.username} {mine && <span className="text-xs text-brand">(toi)</span>}</span>
+                  <button onClick={() => nav(`/u/${r.userId}`)} className="flex items-center gap-3 flex-1 min-w-0 text-left"><Avatar name={r.avatar} label={r.username} size={34} /><span className="font-semibold truncate hover:text-brand transition-colors">{r.username} {mine && <span className="text-xs text-brand">(toi)</span>}</span></button>
                   <Tag color="brand">Nv.{r.level}</Tag>
                   <span className="font-mono text-sm text-muted w-20 text-right">{r.score} {unit}</span>
                 </div>

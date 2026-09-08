@@ -1,4 +1,4 @@
-import { Zap, Brain, Hash, Shuffle, HelpCircle, Sparkles, Ghost, Calculator, Keyboard, Grid3x3, Palette, PartyPopper, Feather, MessageSquare, Swords, Hand, CircleDot, Divide, Timer, Layers, Minus, Grid2x2, Scale } from 'lucide-react';
+import { Zap, Brain, Hash, Shuffle, HelpCircle, Sparkles, Ghost, Calculator, Keyboard, Grid3x3, Palette, PartyPopper, Feather, MessageSquare, Swords, Hand, CircleDot, Divide, Timer, Layers, Minus, Grid2x2, Scale, Type, Heart } from 'lucide-react';
 
 // Métadonnées communes à tous les jeux. Ajouter un jeu = ajouter une entrée ici
 // + un composant dans src/games/<id>/. Le reste (fiche, routes, cartes) est générique.
@@ -204,6 +204,30 @@ export const GAMES = [
     players: '2', duration: '5-10 min', difficulty: 'Facile', avgScore: null, tags: ['Duel', '1v1', 'Entre amis'],
     featured: true, isNew: true,
   },
+  {
+    id: 'nbduel', slug: 'deviner-le-nombre', name: 'Deviner le Nombre', icon: Hash,
+    tagline: 'Trouve le nombre à 4 chiffres de l\u2019autre.',
+    description: "Chacun choisit un nombre secret à 4 chiffres. À chaque essai, on te dit combien de chiffres sont bien placés et combien sont présents mais mal placés. Le premier à trouver le nombre de l'adversaire gagne.",
+    color: ['#38bdf8', '#7c5cff'], ambiance: 'number', mode: 'multi', category: ['Duel', 'Multijoueur', 'Réflexion'],
+    players: '2', duration: '3-6 min', difficulty: 'Moyen', avgScore: null, tags: ['Duel', '1v1'],
+    featured: true, isNew: true,
+  },
+  {
+    id: 'wordduel', slug: 'deviner-le-mot', name: 'Deviner le Mot', icon: Type,
+    tagline: 'Devine le mot secret de l\u2019autre, lettre par lettre.',
+    description: "Chacun choisit un mot secret. À toi de deviner celui de l'adversaire en proposant des lettres (façon pendu). Trop d'erreurs et c'est perdu ! Le premier à révéler le mot de l'autre gagne.",
+    color: ['#34d399', '#22d3be'], ambiance: 'word', mode: 'multi', category: ['Duel', 'Multijoueur', 'Jeux de mots'],
+    players: '2', duration: '3-6 min', difficulty: 'Moyen', avgScore: null, tags: ['Duel', '1v1', 'Mots'],
+    featured: false, isNew: true,
+  },
+  {
+    id: 'coupleduo', slug: 'compatibilite', name: 'Compatibilité', icon: Heart,
+    tagline: 'À quel point vous vous ressemblez ?',
+    description: "Un jeu à deux tout mignon : répondez en même temps à des questions (soirée idéale, sucré ou salé…). Plus vous répondez pareil, plus votre pourcentage de compatibilité grimpe. Parfait à deux.",
+    color: ['#f43f5e', '#ec4899'], ambiance: 'mystery', mode: 'multi', category: ['Duo/Couple', 'Duel', 'Entre amis'],
+    players: '2', duration: '5-8 min', difficulty: 'Facile', avgScore: null, tags: ['Duo', '1v1', 'Couple'],
+    featured: true, isNew: true,
+  },
 ];
 
 export const gameById = (id) => GAMES.find(g => g.id === id);
@@ -217,6 +241,7 @@ export const CATEGORIES = [
   { key: 'Pour réfléchir', emoji: '🧠', match: (g) => g.category.includes('Pour réfléchir') },
   { key: 'Entre amis', emoji: '😂', match: (g) => g.category.includes('Entre amis') || g.mode === 'multi' },
   { key: 'Duel', emoji: '⚔️', match: (g) => g.category.includes('Duel') },
+  { key: 'Duo/Couple', emoji: '💞', match: (g) => g.category.includes('Duo/Couple') },
   { key: 'Compétitif', emoji: '🏆', match: (g) => g.category.includes('Compétitif') },
   { key: 'Multijoueur', emoji: '👥', match: (g) => g.mode === 'multi' },
   { key: 'Jeux de mots', emoji: '✍️', match: (g) => g.category.includes('Jeux de mots') },

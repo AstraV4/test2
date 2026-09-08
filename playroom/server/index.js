@@ -15,6 +15,7 @@ import {
   blockUser, unblockUser, isBlocked, blockedBetween, listBlocked, listBlockedIds, addReport,
   seasonInfo, addSeasonXp, seasonXpOf, seasonLeaderboard,
   sendDm, dmThread, markDmRead, unreadCounts, unreadTotal, updateProfile,
+  setFavorite, listFavoriteIds,
 } from './db.js';
 import { COOKIE, setAuthCookie, clearAuthCookie, userIdFromReq, requireAuth, verifyToken } from './auth.js';
 import { RoomManager } from './rooms.js';
@@ -228,12 +229,19 @@ app.post('/api/anagram/check', (req, res) => {
 
 /* ============================ AMIS ============================ */
 function friendsPayload(userId) {
-  const friends = listFriends(userId).map(f => ({ ...f, ...presence.statusOf(f.id) }));
-  // en ligne d'abord, puis par niveau
-  friends.sort((a, b) => (b.online - a.online) || (b.level - a.level));
+  const favSet = new Set(listFavoriteIds(userId));
+  const friends = listFriends(userId).map(f => ({ ...f, ...presence.statusOf(f.id), favorite: favSet.has(f.id) }));
+  // favoris d'abord, puis en ligne, puis par niveau
+  friends.sort((a, b) => (b.favorite - a.favorite) || (b.online - a.online) || (b.level - a.level));
   return { friends, incoming: listIncoming(userId), outgoing: listOutgoing(userId) };
 }
 app.get('/api/friends', requireAuth, (req, res) => res.json(friendsPayload(req.userId)));
+
+app.post('/api/friends/favorite', requireAuth, (req, res) => {
+  const otherId = parseInt(req.body?.userId, 10); if (!otherId) return res.status(400).json({ error: 'bad_request' });
+  setFavorite(req.userId, otherId, !!req.body?.on);
+  res.json({ ok: true });
+});
 
 app.get('/api/users/search', requireAuth, (req, res) => {
   const q = String(req.query.q || '').trim();
@@ -280,6 +288,22 @@ app.post('/api/friends/remove', requireAuth, (req, res) => {
   removeFriend(req.userId, otherId);
   presence.emitToUser(otherId, 'friends:update', {});
   res.json({ ok: true });
+});
+
+app.get('/api/users/:id/profile', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const u = findUserById(id);
+  if (!u) return res.status(404).json({ error: 'not_found' });
+  const stats = userStats(id);
+  const achievements = listAchievements(id).map(a => a.code);
+  // relation avec le visiteur (si connecté)
+  let relation = 'none'; const viewer = userIdFromReq(req);
+  if (viewer && viewer !== id) {
+    if (areFriends(viewer, id)) relation = 'friend';
+    else if (listOutgoing(viewer).some(x => x.id === id)) relation = 'sent';
+    else if (listIncoming(viewer).some(x => x.id === id)) relation = 'incoming';
+  } else if (viewer === id) relation = 'self';
+  res.json({ user: publicUser(u), stats, achievements, relation, online: presence.isOnline(id) });
 });
 
 /* ============================ MESSAGERIE (DM) ============================ */
@@ -392,6 +416,11 @@ io.on('connection', (socket) => {
   socket.on('duel:edge', (d) => rooms.duelEdge(socket, d));
   socket.on('wyr:submit', (d) => rooms.wyrSubmit(socket, d || {}));
   socket.on('wyr:answer', (d) => rooms.wyrAnswer(socket, d?.choice));
+  socket.on('nb:secret', (d) => rooms.nbSetSecret(socket, d?.value));
+  socket.on('nb:guess', (d) => rooms.nbGuess(socket, d?.value));
+  socket.on('word:secret', (d) => rooms.wordSetSecret(socket, d?.value));
+  socket.on('word:letter', (d) => rooms.wordLetter(socket, d?.letter));
+  socket.on('couple:answer', (d) => rooms.coupleAnswer(socket, d?.choice));
 
   // Invitation directe dans son salon
   socket.on('invite:send', (d) => {

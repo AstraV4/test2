@@ -1,6 +1,6 @@
 # 🎮 PLAYROOM
 
-Plateforme de mini-jeux en ligne. 25 jeux : 9 solo + 5 multijoueur à plusieurs (Imposteur, Draw & Guess, Party, Bluff, Caption Battle) + 11 duels 1 contre 1 (Morpion, Puissance 4, Pierre-Feuille-Ciseaux, Duel de Réflexe, Duel de Calcul, Quiz Duel, Course de Frappe, Bâtonnets, Duel de Mémoire, Petits Carrés, Tu préfères ? — dilemmes écrits par les joueurs). Système d'amis (statut en ligne + invitations), messagerie directe entre amis en temps réel, profil personnalisable (nom affiché, bio, couleur d'accent, avatar), modération (blocage/signalement), Saisons, comptes, XP, niveaux, titres, succès, classements et défi quotidien. Design premium : fond immersif animé, cartes à ambiance, transitions, confettis, podiums.
+Plateforme de mini-jeux en ligne. 28 jeux : 9 solo + 5 multijoueur à plusieurs (Imposteur, Draw & Guess, Party, Bluff, Caption Battle) + 11 duels 1 contre 1 (Morpion, Puissance 4, Pierre-Feuille-Ciseaux, Duel de Réflexe, Duel de Calcul, Quiz Duel, Course de Frappe, Bâtonnets, Duel de Mémoire, Petits Carrés, Tu préfères ?, Deviner le Nombre, Deviner le Mot, Compatibilité — dont une catégorie Duo/Couple). Système d'amis (statut en ligne + invitations), messagerie directe entre amis en temps réel, profil personnalisable (nom affiché, bio, couleur d'accent, avatar), modération (blocage/signalement), Saisons, comptes, XP, niveaux, titres, succès, classements et défi quotidien. Design premium : fond immersif animé, cartes à ambiance, transitions, confettis, podiums.
 
 ## Stack
 - **Front** : React 18 + Vite + Tailwind + React Router + lucide-react + socket.io-client
@@ -41,3 +41,8 @@ npm run dev
 - **Statut en ligne** et **activité en temps réel** ("En ligne", "Dans un salon", "Joue à …").
 - **Invitation directe dans ton salon** : depuis le lobby ou la page Amis ; l'ami reçoit une notification "Rejoindre".
 - Présence liée au compte via le cookie JWT du socket (multi-onglets gérés).
+
+## Profils publics & social
+- Page profil public de chaque joueur (avatar, nom, bio, niveau, stats, succès), accessible en cliquant sur un joueur (amis, classements).
+- Amis en favoris (⭐, épinglés en haut de la liste).
+- Messagerie directe entre amis en temps réel.

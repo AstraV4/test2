@@ -304,4 +304,12 @@ const _unreadByFrom = db.prepare('SELECT from_id AS fromId, COUNT(*) AS n FROM d
 export function unreadCounts(meId) { const out = {}; for (const r of _unreadByFrom.all(meId)) out[r.fromId] = r.n; return out; }
 export function unreadTotal(meId) { return db.prepare('SELECT COUNT(*) n FROM dms WHERE to_id = ? AND read_at IS NULL').get(meId).n; }
 
+/* ---------------- Amis favoris ---------------- */
+db.exec(`CREATE TABLE IF NOT EXISTS favorites (user_id INTEGER NOT NULL, friend_id INTEGER NOT NULL, PRIMARY KEY (user_id, friend_id));`);
+const _addFav = db.prepare('INSERT OR IGNORE INTO favorites (user_id, friend_id) VALUES (?, ?)');
+const _delFav = db.prepare('DELETE FROM favorites WHERE user_id = ? AND friend_id = ?');
+const _listFav = db.prepare('SELECT friend_id FROM favorites WHERE user_id = ?');
+export function setFavorite(userId, friendId, on) { if (on) _addFav.run(userId, friendId); else _delFav.run(userId, friendId); }
+export function listFavoriteIds(userId) { return _listFav.all(userId).map(r => r.friend_id); }
+
 export default db;

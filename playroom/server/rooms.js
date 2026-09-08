@@ -1,5 +1,5 @@
 import { customAlphabet } from 'nanoid';
-import { pickImposterWord, IMPOSTER_THEME_LIST, DRAW_WORDS, buildPartyRound, BLUFF_QA, CAPTION_PROMPTS, QUIZ, WYR_SUGGEST } from './gamedata.js';
+import { pickImposterWord, IMPOSTER_THEME_LIST, DRAW_WORDS, buildPartyRound, BLUFF_QA, CAPTION_PROMPTS, QUIZ, WYR_SUGGEST, COUPLE_QUESTIONS } from './gamedata.js';
 
 const genCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 5);
 
@@ -124,6 +124,30 @@ export class RoomManager {
         reveal: (room.phase === 'wyrReveal' || room.phase === 'wyrOver') ? w.reveal : null,
       };
     }
+    if (room.gameType === 'nbduel' && room.nb) {
+      const n = room.nb;
+      base.nb = {
+        ready: Object.fromEntries(n.p.map(id => [id, n.secret[id] != null])),
+        histories: n.histories, winnerId: n.winnerId || null,
+      };
+    }
+    if (room.gameType === 'wordduel' && room.word2) {
+      const w = room.word2;
+      base.word2 = {
+        ready: Object.fromEntries(w.p.map(id => [id, w.secret[id] != null])),
+        views: w.views, errors: w.errors, tried: w.tried, lens: w.lens, maxErrors: w.maxErrors, winnerId: w.winnerId || null,
+      };
+    }
+    if (room.gameType === 'coupleduo' && room.couple) {
+      const c = room.couple;
+      base.couple = {
+        round: room.coupleRound || 0, total: room.coupleTotal || 0, matches: room.coupleMatches || 0,
+        question: c.question, options: c.options,
+        answeredIds: Object.keys(c.answers || {}),
+        reveal: (room.phase === 'coupleReveal' || room.phase === 'coupleOver') ? c.reveal : null,
+        result: room.coupleResult || null,
+      };
+    }
     return base;
   }
 
@@ -134,7 +158,7 @@ export class RoomManager {
     const playerId = socket.id;
     const room = {
       code, hostId: playerId, gameType: 'imposter', phase: 'lobby', round: 0,
-      settings: { imposters: 1, discussionSec: 90, rounds: 1, theme: 'Aléatoire', drawSec: 75, drawRounds: 1, partyRounds: 8, bluffRounds: 5, captionRounds: 5, wyrRounds: 8 },
+      settings: { imposters: 1, discussionSec: 90, rounds: 1, theme: 'Aléatoire', drawSec: 75, drawRounds: 1, partyRounds: 8, bluffRounds: 5, captionRounds: 5, wyrRounds: 8, coupleRounds: 10 },
       players: [{ id: playerId, name: sanitizeName(name), avatar: avatar || 'nebula', ready: false, connected: true, socketId: socket.id, lastChat: 0 }],
       votes: {}, roles: {}, clueOrder: [], clueIndex: 0, timer: null,
       scores: null, guessed: null, drawerId: null, word: null,
@@ -168,7 +192,7 @@ export class RoomManager {
 
   setGameType(socket, type) {
     const room = this._room(socket); if (!room || !this._isHost(room, socket) || room.phase !== 'lobby') return;
-    if (['imposter', 'draw', 'party', 'bluff', 'caption', 'morpion', 'connect4', 'rps', 'reflexduel', 'mathduel', 'quizduel', 'typerace', 'nim', 'memoduel', 'dots', 'wyrduel'].includes(type)) { room.gameType = type; this.emitRoom(room); this._touchActivity(room); }
+    if (['imposter', 'draw', 'party', 'bluff', 'caption', 'morpion', 'connect4', 'rps', 'reflexduel', 'mathduel', 'quizduel', 'typerace', 'nim', 'memoduel', 'dots', 'wyrduel', 'nbduel', 'wordduel', 'coupleduo'].includes(type)) { room.gameType = type; this.emitRoom(room); this._touchActivity(room); }
   }
 
   // Renvoie l'état privé courant à un joueur qui (ré)affiche le jeu.
@@ -209,6 +233,7 @@ export class RoomManager {
     if (settings.bluffRounds != null) s.bluffRounds = clamp(parseInt(settings.bluffRounds, 10) || s.bluffRounds, 3, 10);
     if (settings.captionRounds != null) s.captionRounds = clamp(parseInt(settings.captionRounds, 10) || s.captionRounds, 3, 10);
     if (settings.wyrRounds != null) s.wyrRounds = clamp(parseInt(settings.wyrRounds, 10) || s.wyrRounds, 4, 20);
+    if (settings.coupleRounds != null) s.coupleRounds = clamp(parseInt(settings.coupleRounds, 10) || s.coupleRounds, 5, 15);
     this.emitRoom(room);
   }
 
@@ -223,7 +248,7 @@ export class RoomManager {
 
   startGame(socket) {
     const room = this._room(socket); if (!room || !this._isHost(room, socket)) return;
-    const isDuel = ['morpion', 'connect4', 'rps', 'reflexduel', 'mathduel', 'quizduel', 'typerace', 'nim', 'memoduel', 'dots', 'wyrduel'].includes(room.gameType);
+    const isDuel = ['morpion', 'connect4', 'rps', 'reflexduel', 'mathduel', 'quizduel', 'typerace', 'nim', 'memoduel', 'dots', 'wyrduel', 'nbduel', 'wordduel', 'coupleduo'].includes(room.gameType);
     if (isDuel) { if (room.players.length !== 2) return socket.emit('room:error', { message: 'Ce jeu se joue exactement à 2 joueurs.' }); }
     else if (room.players.length < 3) return socket.emit('room:error', { message: 'Il faut au moins 3 joueurs.' });
     if (room.gameType === 'draw') this._beginDraw(room);
@@ -231,6 +256,9 @@ export class RoomManager {
     else if (room.gameType === 'bluff') this._beginBluff(room);
     else if (room.gameType === 'caption') this._beginCaption(room);
     else if (room.gameType === 'wyrduel') { this._beginWyr(room); }
+    else if (room.gameType === 'nbduel') { this._beginNb(room); }
+    else if (room.gameType === 'wordduel') { this._beginWord(room); }
+    else if (room.gameType === 'coupleduo') { this._beginCouple(room); }
     else if (DUEL_GAMES.has(room.gameType)) { this._beginDuel(room); }
     else this._beginRound(room);
     this._touchActivity(room);
@@ -307,6 +335,9 @@ export class RoomManager {
     if (room.gameType === 'bluff') { this._nextBluff(room); return; }
     if (room.gameType === 'caption') { this._nextCaption(room); return; }
     if (room.gameType === 'wyrduel') { this._nextWyr(room); return; }
+    if (room.gameType === 'nbduel') { if (room.phase === 'nbOver') this._beginNb(room); return; }
+    if (room.gameType === 'wordduel') { if (room.phase === 'wordOver') this._beginWord(room); return; }
+    if (room.gameType === 'coupleduo') { this._nextCouple(room); return; }
     if (DUEL_GAMES.has(room.gameType)) { if (room.duel && room.duel.matchOver) this._beginDuel(room); return; }
     if (room.round >= room.settings.rounds) { this._toLobby(room); return; }
     this._beginRound(room);
@@ -318,7 +349,7 @@ export class RoomManager {
     room.scores = null; room.guessed = null; room.drawerId = null; room.word = null;
     room.partyRound = null; room.partyReveal = null; room.partyTurn = 0; room.partyUsed = null;
     room.bluff = null; room.caption = null;
-    room.duel = null; room.wyr = null;
+    room.duel = null; room.wyr = null; room.nb = null; room.word2 = null; room.couple = null;
     room.players.forEach(p => { p.ready = false; p.eliminated = false; });
     this.io.to(room.code).emit('game:toLobby');
     this.emitRoom(room);
@@ -910,11 +941,146 @@ export class RoomManager {
     this.emitRoom(room);
   }
 
+  /* ============================ Deviner le NOMBRE (1000-9999) ============================ */
+  _beginNb(room) {
+    const ids = room.players.filter(p => p.connected).map(p => p.id);
+    if (ids.length !== 2) { this._duelNeed2(room); return; }
+    room.nb = { p: ids, secret: {}, histories: { [ids[0]]: [], [ids[1]]: [] }, winnerId: null };
+    room.phase = 'nbSetup';
+    this.emitRoom(room);
+  }
+  nbSetSecret(socket, value) {
+    const room = this._room(socket); const n = room?.nb; if (!room || !n || room.phase !== 'nbSetup') return;
+    const me = this._me(room, socket); if (!me) return;
+    const v = String(value || '').replace(/\D/g, '');
+    if (v.length !== 4) { socket.emit('room:error', { message: 'Choisis un nombre à 4 chiffres.' }); return; }
+    n.secret[me.id] = v;
+    this.emitRoom(room);
+    if (n.p.every(id => n.secret[id] != null)) { room.phase = 'nbPlay'; this.emitRoom(room); }
+  }
+  nbGuess(socket, value) {
+    const room = this._room(socket); const n = room?.nb; if (!room || !n || room.phase !== 'nbPlay') return;
+    const me = this._me(room, socket); if (!me || n.winnerId) return;
+    const guess = String(value || '').replace(/\D/g, '');
+    if (guess.length !== 4) return;
+    const oppId = n.p.find(x => x !== me.id);
+    const secret = n.secret[oppId];
+    const { well, misplaced } = bullsCows(secret, guess);
+    n.histories[me.id].push({ guess, well, misplaced });
+    if (well === 4) { n.winnerId = me.id; room.phase = 'nbOver'; this.io.to(room.code).emit('nb:over', { winnerId: me.id, secrets: n.secret }); }
+    this.emitRoom(room);
+  }
+
+  /* ============================ Deviner le MOT (façon pendu) ============================ */
+  _beginWord(room) {
+    const ids = room.players.filter(p => p.connected).map(p => p.id);
+    if (ids.length !== 2) { this._duelNeed2(room); return; }
+    room.word2 = { p: ids, secret: {}, revealed: { [ids[0]]: new Set(), [ids[1]]: new Set() }, errors: { [ids[0]]: 0, [ids[1]]: 0 }, tried: { [ids[0]]: [], [ids[1]]: [] }, maxErrors: 8, winnerId: null };
+    room.phase = 'wordSetup';
+    this._word2Public(room);
+    this.emitRoom(room);
+  }
+  wordSetSecret(socket, value) {
+    const room = this._room(socket); const w = room?.word2; if (!room || !w || room.phase !== 'wordSetup') return;
+    const me = this._me(room, socket); if (!me) return;
+    const word = normWord(value);
+    if (word.length < 3 || word.length > 12) { socket.emit('room:error', { message: 'Choisis un mot de 3 à 12 lettres.' }); return; }
+    w.secret[me.id] = word;
+    if (w.p.every(id => w.secret[id] != null)) { room.phase = 'wordPlay'; }
+    this._word2Public(room); this.emitRoom(room);
+  }
+  wordLetter(socket, letter) {
+    const room = this._room(socket); const w = room?.word2; if (!room || !w || room.phase !== 'wordPlay') return;
+    const me = this._me(room, socket); if (!me || w.winnerId) return;
+    const L = normWord(letter).slice(0, 1); if (!L) return;
+    if (w.tried[me.id].includes(L)) return;
+    w.tried[me.id].push(L);
+    const oppId = w.p.find(x => x !== me.id);
+    const secret = w.secret[oppId];
+    if (secret.includes(L)) {
+      w.revealed[me.id].add(L);
+      // gagné si toutes les lettres du mot adverse sont révélées
+      const allRevealed = [...new Set(secret.split(''))].every(ch => w.revealed[me.id].has(ch));
+      if (allRevealed) { w.winnerId = me.id; room.phase = 'wordOver'; this.io.to(room.code).emit('word:over', { winnerId: me.id, secrets: w.secret }); }
+    } else {
+      w.errors[me.id] += 1;
+      if (w.errors[me.id] >= w.maxErrors) { const opp = w.p.find(x => x !== me.id); w.winnerId = opp; room.phase = 'wordOver'; this.io.to(room.code).emit('word:over', { winnerId: opp, secrets: w.secret, reason: 'maxErrors' }); }
+    }
+    this._word2Public(room); this.emitRoom(room);
+  }
+  _word2Public(room) {
+    const w = room.word2; if (!w) return;
+    w.lens = {}; w.views = {};
+    for (const id of w.p) {
+      const oppId = w.p.find(x => x !== id);
+      const secret = w.secret[oppId];
+      w.lens[id] = secret ? secret.length : 0;
+      w.views[id] = secret ? secret.split('').map(ch => (w.revealed[id].has(ch) ? ch : '_')).join('') : '';
+    }
+    // exposer tried/errors tels quels (déjà des tableaux/nombres)
+  }
+
+  /* ============================ Compatibilité (Duo / Couple) ============================ */
+  _beginCouple(room) {
+    const ids = room.players.filter(p => p.connected).map(p => p.id);
+    if (ids.length !== 2) { this._duelNeed2(room); return; }
+    room.coupleP = ids; room.coupleUsed = new Set(); room.coupleRound = 0; room.coupleTotal = room.settings.coupleRounds; room.coupleMatches = 0;
+    this._beginCoupleRound(room);
+  }
+  _beginCoupleRound(room) {
+    this._clearTimer(room);
+    room.coupleRound += 1;
+    let idx = Math.floor(Math.random() * COUPLE_QUESTIONS.length);
+    for (let i = 0; i < COUPLE_QUESTIONS.length && room.coupleUsed.has(idx); i++) idx = (idx + 1) % COUPLE_QUESTIONS.length;
+    room.coupleUsed.add(idx);
+    const q = COUPLE_QUESTIONS[idx];
+    room.couple = { question: q.q, options: q.options, answers: {}, reveal: null };
+    room.phase = 'coupleAnswer';
+    this.emitRoom(room);
+    this._setTimer(room, 40000, () => this._coupleReveal(room));
+  }
+  coupleAnswer(socket, choice) {
+    const room = this._room(socket); const c = room?.couple; if (!room || !c || room.phase !== 'coupleAnswer') return;
+    const me = this._me(room, socket); if (!me) return;
+    const i = parseInt(choice, 10); if (!(i >= 0 && i < c.options.length)) return;
+    c.answers[me.id] = i;
+    this.emitRoom(room);
+    if (room.coupleP.every(id => c.answers[id] != null)) this._coupleReveal(room);
+  }
+  _coupleReveal(room) {
+    this._clearTimer(room);
+    const c = room.couple; if (!c || c.reveal) return;
+    const [a, b] = room.coupleP;
+    const match = c.answers[a] != null && c.answers[a] === c.answers[b];
+    if (match) room.coupleMatches += 1;
+    c.reveal = { answers: c.answers, match };
+    room.phase = 'coupleReveal';
+    this.io.to(room.code).emit('couple:reveal', c.reveal);
+    this.emitRoom(room);
+    this._setTimer(room, 6000, () => this._nextCouple(room));
+  }
+  _nextCouple(room) {
+    this._clearTimer(room);
+    if (room.coupleRound >= room.coupleTotal) { this._endCouple(room); return; }
+    this._beginCoupleRound(room);
+  }
+  _endCouple(room) {
+    this._clearTimer(room);
+    room.phase = 'coupleOver';
+    const total = room.coupleRound || 0;
+    const affinity = total ? Math.round((room.coupleMatches / total) * 100) : 0;
+    room.coupleResult = { matches: room.coupleMatches, total, affinity };
+    this.io.to(room.code).emit('couple:over', room.coupleResult);
+    this.emitRoom(room);
+  }
+
+  _duelNeed2(room) { const s = this.io.sockets.sockets.get(room.players.find(p => p.id === room.hostId)?.socketId); s?.emit('room:error', { message: 'Ce jeu se joue à 2 joueurs.' }); }
+
   /* ============================ CHAT ============================ */
   _chatAllowed(room) {
     if (room.gameType === 'draw') return true; // le chat sert aussi à deviner
     if (room.gameType === 'party' || room.gameType === 'bluff' || room.gameType === 'caption') return true; // social
-    if (DUEL_GAMES.has(room.gameType) || room.gameType === 'wyrduel') return true; // 1v1 : chat libre
+    if (DUEL_GAMES.has(room.gameType) || ['wyrduel','nbduel','wordduel','coupleduo'].includes(room.gameType)) return true; // 1v1 : chat libre
     // Imposteur : chat libre au lobby, en discussion et au résultat ; bloqué pendant reveal/indices/vote
     return ['lobby', 'discussion', 'result'].includes(room.phase);
   }
@@ -947,7 +1113,7 @@ export class RoomManager {
     if (me.id === room.hostId) { const next = room.players.find(p => p.connected && p.socketId !== socket.id); if (next) room.hostId = next.id; }
     if (room.players.length === 0 || room.players.every(p => !p.connected)) { this._clearTimer(room); this.rooms.delete(room.code); return; }
     this._clearActivity(socket);
-    if (room.gameType === 'wyrduel' && room.phase !== 'lobby') { this._clearTimer(room); room.phase = 'lobby'; room.wyr = null; this.io.to(room.code).emit('game:toLobby'); this.emitRoom(room); return; }
+    if (['wyrduel','nbduel','wordduel','coupleduo'].includes(room.gameType) && room.phase !== 'lobby') { this._clearTimer(room); room.phase = 'lobby'; room.wyr = null; room.nb = null; room.word2 = null; room.couple = null; this.io.to(room.code).emit('game:toLobby'); this.emitRoom(room); return; }
     if (DUEL_GAMES.has(room.gameType) && room.duel && !room.duel.matchOver && (room.phase === 'duel' || room.phase === 'duelOver')) {
       const remaining = room.players.find(p => p.connected);
       if (remaining) { room.duel.matchOver = true; room.duel.winnerId = remaining.id; room.phase = 'duelOver'; this._clearTimer(room); this.io.to(room.code).emit('duel:over', { winnerId: remaining.id, forfeit: true }); this.emitRoom(room); return; }
@@ -1019,3 +1185,13 @@ function memoFaceUp(d) {
   for (let i = 0; i < 16; i++) if (d.matched[i] || (d.flipped && d.flipped.includes(i))) out[i] = d.deck[i];
   return out;
 }
+
+function bullsCows(secret, guess) {
+  let well = 0; const sRem = [], gRem = [];
+  for (let i = 0; i < 4; i++) { if (secret[i] === guess[i]) well++; else { sRem.push(secret[i]); gRem.push(guess[i]); } }
+  let misplaced = 0; const pool = {};
+  for (const d of sRem) pool[d] = (pool[d] || 0) + 1;
+  for (const d of gRem) if (pool[d] > 0) { misplaced++; pool[d]--; }
+  return { well, misplaced };
+}
+function normWord(x) { return String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, ''); }
