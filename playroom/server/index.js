@@ -390,6 +390,8 @@ io.on('connection', (socket) => {
   socket.on('duel:take', (d) => rooms.duelTake(socket, d?.n));
   socket.on('duel:flip', (d) => rooms.duelFlip(socket, d?.index));
   socket.on('duel:edge', (d) => rooms.duelEdge(socket, d));
+  socket.on('wyr:submit', (d) => rooms.wyrSubmit(socket, d || {}));
+  socket.on('wyr:answer', (d) => rooms.wyrAnswer(socket, d?.choice));
 
   // Invitation directe dans son salon
   socket.on('invite:send', (d) => {

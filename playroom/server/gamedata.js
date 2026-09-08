@@ -244,3 +244,12 @@ export const CAPTION_PROMPTS = [
   'Une excuse bidon pour quitter une fête',
   'Le nom d\u2019un groupe de musique formé en cours',
 ];
+
+/* ---------------- « Tu préfères ? » (duo, écrit par les joueurs) ---------------- */
+// Suggestions optionnelles proposées au joueur qui écrit (il peut ignorer et écrire les siennes).
+export const WYR_SUGGEST = [
+  ['les pâtes', 'le riz'], ['la mer', 'la montagne'], ['le sucré', 'le salé'],
+  ['être invisible', 'pouvoir voler'], ['le chien', 'le chat'], ['le matin', 'le soir'],
+  ['la pizza', 'les burgers'], ['l\u2019été', 'l\u2019hiver'], ['les films', 'les séries'],
+  ['le thé', 'le café'], ['la plage', 'la piscine'], ['lire', 'jouer'],
+];

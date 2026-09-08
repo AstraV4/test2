@@ -1,4 +1,4 @@
-import { Zap, Brain, Hash, Shuffle, HelpCircle, Sparkles, Ghost, Calculator, Keyboard, Grid3x3, Palette, PartyPopper, Feather, MessageSquare, Swords, Hand, CircleDot, Divide, Timer, Layers, Minus, Grid2x2 } from 'lucide-react';
+import { Zap, Brain, Hash, Shuffle, HelpCircle, Sparkles, Ghost, Calculator, Keyboard, Grid3x3, Palette, PartyPopper, Feather, MessageSquare, Swords, Hand, CircleDot, Divide, Timer, Layers, Minus, Grid2x2, Scale } from 'lucide-react';
 
 // Métadonnées communes à tous les jeux. Ajouter un jeu = ajouter une entrée ici
 // + un composant dans src/games/<id>/. Le reste (fiche, routes, cartes) est générique.
@@ -195,6 +195,14 @@ export const GAMES = [
     color: ['#34d399', '#22d3ee'], ambiance: 'grid', mode: 'multi', category: ['Duel', 'Multijoueur', 'Réflexion'],
     players: '2', duration: '4-7 min', difficulty: 'Moyen', avgScore: null, tags: ['Duel', '1v1'],
     featured: false, isNew: true,
+  },
+  {
+    id: 'wyrduel', slug: 'tu-preferes', name: 'Tu préfères ?', icon: Scale,
+    tagline: 'Écris tes dilemmes, ton adversaire choisit.',
+    description: "À tour de rôle, tu inventes un « Tu préfères… » (pâtes ou riz ? mer ou montagne ?) et tu choisis secrètement ta réponse. L'autre répond, puis on révèle si vos goûts collent. Un petit taux d'affinité à la fin, juste pour rire — pas de points.",
+    color: ['#ec4899', '#7c5cff'], ambiance: 'mystery', mode: 'multi', category: ['Duel', 'Multijoueur', 'Entre amis'],
+    players: '2', duration: '5-10 min', difficulty: 'Facile', avgScore: null, tags: ['Duel', '1v1', 'Entre amis'],
+    featured: true, isNew: true,
   },
 ];
 

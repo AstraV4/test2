@@ -1,5 +1,5 @@
 import { customAlphabet } from 'nanoid';
-import { pickImposterWord, IMPOSTER_THEME_LIST, DRAW_WORDS, buildPartyRound, BLUFF_QA, CAPTION_PROMPTS, QUIZ } from './gamedata.js';
+import { pickImposterWord, IMPOSTER_THEME_LIST, DRAW_WORDS, buildPartyRound, BLUFF_QA, CAPTION_PROMPTS, QUIZ, WYR_SUGGEST } from './gamedata.js';
 
 const genCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 5);
 
@@ -113,6 +113,17 @@ export class RoomManager {
         dots: (d.game === 'dots') ? { rows: 3, cols: 3, h: d.h, v: d.v, owners: d.owners, counts: d.counts } : null,
       };
     }
+    if (room.gameType === 'wyrduel' && room.wyr) {
+      const w = room.wyr;
+      base.wyr = {
+        askerId: w.asker, chooserId: w.chooser,
+        round: room.wyrRound || 0, total: room.wyrTotal || 0, matches: room.wyrMatches || 0,
+        prompt: room.phase !== 'wyrWrite' ? w.prompt : null,
+        options: room.phase !== 'wyrWrite' ? w.options : null,
+        suggestion: w.suggestion || null,
+        reveal: (room.phase === 'wyrReveal' || room.phase === 'wyrOver') ? w.reveal : null,
+      };
+    }
     return base;
   }
 
@@ -123,7 +134,7 @@ export class RoomManager {
     const playerId = socket.id;
     const room = {
       code, hostId: playerId, gameType: 'imposter', phase: 'lobby', round: 0,
-      settings: { imposters: 1, discussionSec: 90, rounds: 1, theme: 'Aléatoire', drawSec: 75, drawRounds: 1, partyRounds: 8, bluffRounds: 5, captionRounds: 5 },
+      settings: { imposters: 1, discussionSec: 90, rounds: 1, theme: 'Aléatoire', drawSec: 75, drawRounds: 1, partyRounds: 8, bluffRounds: 5, captionRounds: 5, wyrRounds: 8 },
       players: [{ id: playerId, name: sanitizeName(name), avatar: avatar || 'nebula', ready: false, connected: true, socketId: socket.id, lastChat: 0 }],
       votes: {}, roles: {}, clueOrder: [], clueIndex: 0, timer: null,
       scores: null, guessed: null, drawerId: null, word: null,
@@ -157,7 +168,7 @@ export class RoomManager {
 
   setGameType(socket, type) {
     const room = this._room(socket); if (!room || !this._isHost(room, socket) || room.phase !== 'lobby') return;
-    if (['imposter', 'draw', 'party', 'bluff', 'caption', 'morpion', 'connect4', 'rps', 'reflexduel', 'mathduel', 'quizduel', 'typerace', 'nim', 'memoduel', 'dots'].includes(type)) { room.gameType = type; this.emitRoom(room); this._touchActivity(room); }
+    if (['imposter', 'draw', 'party', 'bluff', 'caption', 'morpion', 'connect4', 'rps', 'reflexduel', 'mathduel', 'quizduel', 'typerace', 'nim', 'memoduel', 'dots', 'wyrduel'].includes(type)) { room.gameType = type; this.emitRoom(room); this._touchActivity(room); }
   }
 
   // Renvoie l'état privé courant à un joueur qui (ré)affiche le jeu.
@@ -197,6 +208,7 @@ export class RoomManager {
     if (settings.partyRounds != null) s.partyRounds = clamp(parseInt(settings.partyRounds, 10) || s.partyRounds, 3, 15);
     if (settings.bluffRounds != null) s.bluffRounds = clamp(parseInt(settings.bluffRounds, 10) || s.bluffRounds, 3, 10);
     if (settings.captionRounds != null) s.captionRounds = clamp(parseInt(settings.captionRounds, 10) || s.captionRounds, 3, 10);
+    if (settings.wyrRounds != null) s.wyrRounds = clamp(parseInt(settings.wyrRounds, 10) || s.wyrRounds, 4, 20);
     this.emitRoom(room);
   }
 
@@ -211,13 +223,14 @@ export class RoomManager {
 
   startGame(socket) {
     const room = this._room(socket); if (!room || !this._isHost(room, socket)) return;
-    const isDuel = ['morpion', 'connect4', 'rps', 'reflexduel', 'mathduel', 'quizduel', 'typerace', 'nim', 'memoduel', 'dots'].includes(room.gameType);
+    const isDuel = ['morpion', 'connect4', 'rps', 'reflexduel', 'mathduel', 'quizduel', 'typerace', 'nim', 'memoduel', 'dots', 'wyrduel'].includes(room.gameType);
     if (isDuel) { if (room.players.length !== 2) return socket.emit('room:error', { message: 'Ce jeu se joue exactement à 2 joueurs.' }); }
     else if (room.players.length < 3) return socket.emit('room:error', { message: 'Il faut au moins 3 joueurs.' });
     if (room.gameType === 'draw') this._beginDraw(room);
     else if (room.gameType === 'party') this._beginParty(room);
     else if (room.gameType === 'bluff') this._beginBluff(room);
     else if (room.gameType === 'caption') this._beginCaption(room);
+    else if (room.gameType === 'wyrduel') { this._beginWyr(room); }
     else if (DUEL_GAMES.has(room.gameType)) { this._beginDuel(room); }
     else this._beginRound(room);
     this._touchActivity(room);
@@ -293,6 +306,7 @@ export class RoomManager {
     if (room.gameType === 'party') { this._nextParty(room); return; }
     if (room.gameType === 'bluff') { this._nextBluff(room); return; }
     if (room.gameType === 'caption') { this._nextCaption(room); return; }
+    if (room.gameType === 'wyrduel') { this._nextWyr(room); return; }
     if (DUEL_GAMES.has(room.gameType)) { if (room.duel && room.duel.matchOver) this._beginDuel(room); return; }
     if (room.round >= room.settings.rounds) { this._toLobby(room); return; }
     this._beginRound(room);
@@ -304,7 +318,7 @@ export class RoomManager {
     room.scores = null; room.guessed = null; room.drawerId = null; room.word = null;
     room.partyRound = null; room.partyReveal = null; room.partyTurn = 0; room.partyUsed = null;
     room.bluff = null; room.caption = null;
-    room.duel = null;
+    room.duel = null; room.wyr = null;
     room.players.forEach(p => { p.ready = false; p.eliminated = false; });
     this.io.to(room.code).emit('game:toLobby');
     this.emitRoom(room);
@@ -832,11 +846,75 @@ export class RoomManager {
     this.emitRoom(room);
   }
 
+  /* ============================ « Tu préfères ? » (duo) ============================ */
+  _beginWyr(room) {
+    const ids = room.players.filter(p => p.connected).map(p => p.id);
+    if (ids.length !== 2) { const s = this.io.sockets.sockets.get(room.players.find(p => p.id === room.hostId)?.socketId); s?.emit('room:error', { message: 'Ce jeu se joue à 2 joueurs.' }); return; }
+    room.wyrP = [ids[0], ids[1]];
+    room.wyrRound = 0; room.wyrTotal = room.settings.wyrRounds; room.wyrMatches = 0;
+    this._beginWyrRound(room);
+  }
+  _beginWyrRound(room) {
+    this._clearTimer(room);
+    room.wyrRound += 1;
+    const asker = room.wyrP[(room.wyrRound - 1) % 2];
+    const chooser = room.wyrP.find(x => x !== asker);
+    const sug = WYR_SUGGEST[Math.floor(Math.random() * WYR_SUGGEST.length)];
+    room.wyr = { asker, chooser, prompt: null, options: null, askerChoice: null, chooserChoice: null, reveal: null, suggestion: sug };
+    room.phase = 'wyrWrite';
+    this.emitRoom(room);
+    this._setTimer(room, 120000, () => this._beginWyrRound(room)); // sécurité si le joueur reste inactif
+  }
+  wyrSubmit(socket, data) {
+    const room = this._room(socket); const w = room?.wyr; if (!room || !w || room.phase !== 'wyrWrite') return;
+    const me = this._me(room, socket); if (!me || me.id !== w.asker) return;
+    const a = sanitizeClue(data?.optionA); const b = sanitizeClue(data?.optionB);
+    if (!a || !b) return;
+    w.options = [a, b];
+    w.prompt = sanitizeChat(data?.prompt) || 'Tu préfères…';
+    const c = parseInt(data?.choice, 10); w.askerChoice = (c === 0 || c === 1) ? c : 0; // choix secret de celui qui pose
+    room.phase = 'wyrAnswer';
+    this.emitRoom(room);
+    this._setTimer(room, 45000, () => { if (w.chooserChoice == null) { w.chooserChoice = Math.round(Math.random()); this._wyrReveal(room); } });
+  }
+  wyrAnswer(socket, choice) {
+    const room = this._room(socket); const w = room?.wyr; if (!room || !w || room.phase !== 'wyrAnswer') return;
+    const me = this._me(room, socket); if (!me || me.id !== w.chooser) return;
+    const c = parseInt(choice, 10); if (c !== 0 && c !== 1) return;
+    w.chooserChoice = c;
+    this._wyrReveal(room);
+  }
+  _wyrReveal(room) {
+    this._clearTimer(room);
+    const w = room.wyr; if (!w || w.reveal) return;
+    const match = w.askerChoice === w.chooserChoice;
+    if (match) room.wyrMatches += 1;
+    w.reveal = { askerChoice: w.askerChoice, chooserChoice: w.chooserChoice, match, prompt: w.prompt, options: w.options };
+    room.phase = 'wyrReveal';
+    this.io.to(room.code).emit('wyr:reveal', w.reveal);
+    this.emitRoom(room);
+    this._setTimer(room, 6000, () => this._nextWyr(room));
+  }
+  _nextWyr(room) {
+    this._clearTimer(room);
+    if (room.wyrRound >= room.wyrTotal) { this._endWyr(room); return; }
+    this._beginWyrRound(room);
+  }
+  _endWyr(room) {
+    this._clearTimer(room);
+    room.phase = 'wyrOver';
+    const total = room.wyrRound || 0;
+    const affinity = total ? Math.round((room.wyrMatches / total) * 100) : 0;
+    room.wyrResult = { matches: room.wyrMatches, total, affinity };
+    this.io.to(room.code).emit('wyr:over', room.wyrResult);
+    this.emitRoom(room);
+  }
+
   /* ============================ CHAT ============================ */
   _chatAllowed(room) {
     if (room.gameType === 'draw') return true; // le chat sert aussi à deviner
     if (room.gameType === 'party' || room.gameType === 'bluff' || room.gameType === 'caption') return true; // social
-    if (DUEL_GAMES.has(room.gameType)) return true; // 1v1 : chat libre
+    if (DUEL_GAMES.has(room.gameType) || room.gameType === 'wyrduel') return true; // 1v1 : chat libre
     // Imposteur : chat libre au lobby, en discussion et au résultat ; bloqué pendant reveal/indices/vote
     return ['lobby', 'discussion', 'result'].includes(room.phase);
   }
@@ -869,6 +947,7 @@ export class RoomManager {
     if (me.id === room.hostId) { const next = room.players.find(p => p.connected && p.socketId !== socket.id); if (next) room.hostId = next.id; }
     if (room.players.length === 0 || room.players.every(p => !p.connected)) { this._clearTimer(room); this.rooms.delete(room.code); return; }
     this._clearActivity(socket);
+    if (room.gameType === 'wyrduel' && room.phase !== 'lobby') { this._clearTimer(room); room.phase = 'lobby'; room.wyr = null; this.io.to(room.code).emit('game:toLobby'); this.emitRoom(room); return; }
     if (DUEL_GAMES.has(room.gameType) && room.duel && !room.duel.matchOver && (room.phase === 'duel' || room.phase === 'duelOver')) {
       const remaining = room.players.find(p => p.connected);
       if (remaining) { room.duel.matchOver = true; room.duel.winnerId = remaining.id; room.phase = 'duelOver'; this._clearTimer(room); this.io.to(room.code).emit('duel:over', { winnerId: remaining.id, forfeit: true }); this.emitRoom(room); return; }
