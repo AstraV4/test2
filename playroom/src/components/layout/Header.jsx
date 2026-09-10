@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Gamepad2, Home, Grid3x3, Users2, Trophy, Search, Sun, Moon, Volume2, VolumeX, Menu, X, LogOut, User as UserIcon, Flame, UserPlus, MessageCircle } from 'lucide-react';
+import { Gamepad2, Home, Grid3x3, Users2, Trophy, Search, Sun, Moon, Volume2, VolumeX, Menu, X, LogOut, User as UserIcon, Flame, UserPlus, MessageCircle, Music, Music2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useTheme } from '../../context/ThemeContext.jsx';
 import { useFriends } from '../../context/FriendsContext.jsx';
 import { Avatar, Button } from '../ui/index.jsx';
 import { sound } from '../../lib/sound.js';
+import { toggleMusic, isMusicPlaying, music } from '../../lib/music.js';
 
 const NAV = [
   { to: '/', label: 'Accueil', icon: Home, end: true },
@@ -25,9 +26,11 @@ export default function Header() {
   const unread = friends?.unread?.total || 0;
   const [open, setOpen] = useState(false);
   const [muted, setMuted] = useState(!sound.enabled);
+  const [musicOn, setMusicOn] = useState(false);
   const nav = useNavigate();
 
   const toggleSound = () => { const en = sound.toggle(); setMuted(!en); if (en) sound.play('ok'); };
+  const onToggleMusic = () => { const on = toggleMusic(); setMusicOn(on); };
   const linkClass = ({ isActive }) => `px-3 py-2 rounded-xl text-sm font-medium transition-colors inline-flex items-center gap-2 relative ${isActive ? 'bg-surface-2 text-text' : 'text-muted hover:text-text hover:bg-surface-2/60'}`;
   const badge = (to) => {
     const n = to === '/amis' ? incoming : to === '/messages' ? unread : 0;
@@ -49,7 +52,8 @@ export default function Header() {
 
         <div className="flex items-center gap-1.5">
           <button onClick={() => nav('/jeux')} title="Rechercher un jeu" className="hidden sm:flex h-9 w-9 items-center justify-center rounded-xl text-muted hover:text-text hover:bg-surface-2 transition-colors"><Search className="h-4 w-4" /></button>
-          <button onClick={toggleSound} title="Son" className="h-9 w-9 flex items-center justify-center rounded-xl text-muted hover:text-text hover:bg-surface-2 transition-colors">{muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}</button>
+          <button onClick={toggleSound} title="Effets sonores" className="h-9 w-9 flex items-center justify-center rounded-xl text-muted hover:text-text hover:bg-surface-2 transition-colors">{muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}</button>
+          <button onClick={onToggleMusic} title="Musique d'ambiance" className={`h-9 w-9 flex items-center justify-center rounded-xl transition-colors ${musicOn ? 'text-brand bg-brand/10' : 'text-muted hover:text-text hover:bg-surface-2'}`}>{musicOn ? <Music2 className="h-4 w-4" /> : <Music className="h-4 w-4" />}</button>
           <button onClick={toggle} title="Thème" className="h-9 w-9 flex items-center justify-center rounded-xl text-muted hover:text-text hover:bg-surface-2 transition-colors">{theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</button>
 
           {user ? (

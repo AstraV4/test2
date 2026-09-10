@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Send, MessageCircle, ArrowLeft, Lock, Users2, Gamepad2, Trash2, Check, CheckCheck } from 'lucide-react';
+import { Send, MessageCircle, ArrowLeft, Lock, Users2, Gamepad2, Trash2, Check, CheckCheck, SmilePlus } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { getSocket } from '../lib/socket.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -72,30 +72,59 @@ function Thread({ friend, me }) {
   const friends = useFriends();
   const nav = useNavigate();
   const [messages, setMessages] = useState(null);
+  const [reactions, setReactions] = useState({});
+  const [reactMenu, setReactMenu] = useState(null); // id du message dont le menu emoji est ouvert
   const [lastRead, setLastRead] = useState(null);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [menuId, setMenuId] = useState(null);
+  const [typing, setTyping] = useState(false);
+  const typingTimer = useRef(null);
   const listRef = useRef(null);
   const st = activityLabel(friend);
   const name = friends.nameOf(friend);
 
   const load = async () => {
-    try { const d = await api(`/api/dm/${friend.id}`); setMessages(d.messages); setLastRead(d.lastRead); friends.markReadLocal(friend.id); }
+    try { const d = await api(`/api/dm/${friend.id}`); setMessages(d.messages); setReactions(d.reactions || {}); setLastRead(d.lastRead); friends.markReadLocal(friend.id); }
     catch { setMessages([]); }
   };
   useEffect(() => { setMessages(null); load(); }, [friend.id]);
   useEffect(() => { if (messages !== null) load(); /* eslint-disable-next-line */ }, [friends.dmPing]);
   useEffect(() => { if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight; }, [messages]);
 
-  // Accusé de lecture temps réel + suppression temps réel
+  // Accusé de lecture temps réel + suppression temps réel + indicateur "écrit…"
   useEffect(() => {
     const socket = getSocket();
     const onRead = (d) => { if (d.by === friend.id) setLastRead(d.at); };
     const onDeleted = (d) => setMessages(m => (m || []).map(x => x.id === d.messageId ? { ...x, deleted: 1, body: '' } : x));
-    socket.on('dm:read', onRead); socket.on('dm:deleted', onDeleted);
-    return () => { socket.off('dm:read', onRead); socket.off('dm:deleted', onDeleted); };
+    let clr;
+    const onTyping = (d) => { if (d.from === friend.id) { setTyping(!!d.on); if (d.on) { clearTimeout(clr); clr = setTimeout(() => setTyping(false), 4000); } } };
+    const onReact = (d) => setReactions(r => ({ ...r, [d.messageId]: d.reactions }));
+    socket.on('dm:read', onRead); socket.on('dm:deleted', onDeleted); socket.on('dm:typing', onTyping); socket.on('dm:react', onReact);
+    return () => { socket.off('dm:read', onRead); socket.off('dm:deleted', onDeleted); socket.off('dm:typing', onTyping); socket.off('dm:react', onReact); clearTimeout(clr); };
   }, [friend.id]);
+
+  const EMOJIS = ['❤️', '😂', '👍', '😮', '🔥', '😍'];
+  const react = async (id, emoji) => {
+    setReactMenu(null);
+    // maj optimiste
+    setReactions(r => {
+      const cur = (r[id] || []).filter(x => x.userId !== me.id);
+      const mine = (r[id] || []).find(x => x.userId === me.id);
+      const next = (mine && mine.emoji === emoji) ? cur : [...cur, { userId: me.id, emoji }];
+      return { ...r, [id]: next };
+    });
+    try { const d = await api(`/api/dm/${friend.id}/react`, { method: 'POST', body: { messageId: id, emoji } }); setReactions(r => ({ ...r, [id]: d.reactions })); } catch { /* ignore */ }
+  };
+
+  // Émet "écrit…" quand je tape (avec extinction auto)
+  const onType = (v) => {
+    setText(v);
+    const socket = getSocket();
+    socket.emit('dm:typing', { toUserId: friend.id, on: true });
+    clearTimeout(typingTimer.current);
+    typingTimer.current = setTimeout(() => socket.emit('dm:typing', { toUserId: friend.id, on: false }), 1800);
+  };
 
   const send = async () => {
     const body = text.trim(); if (!body || sending) return;
@@ -129,19 +158,51 @@ function Thread({ friend, me }) {
           const mine = m.fromId === me.id;
           if (m.deleted) return <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}><div className="max-w-[75%] rounded-2xl px-4 py-2 text-sm italic text-muted bg-surface-2/50 border border-border">🚫 message supprimé</div></div>;
           return (
-            <div key={m.id} className={`group flex items-center gap-1.5 ${mine ? 'justify-end' : 'justify-start'}`}>
+            <div key={m.id} className={`group flex items-end gap-1.5 ${mine ? 'justify-end' : 'justify-start'}`}>
               {mine && typeof m.id === 'number' && (
                 <div className="relative">
                   <button onClick={() => setMenuId(menuId === m.id ? null : m.id)} className="opacity-0 group-hover:opacity-100 text-muted hover:text-danger transition-opacity p-1"><Trash2 className="h-3.5 w-3.5" /></button>
                   {menuId === m.id && <button onClick={() => del(m.id)} className="absolute right-0 top-6 z-10 whitespace-nowrap rounded-lg bg-surface border border-border px-3 py-1.5 text-xs text-danger shadow-card">Supprimer</button>}
                 </div>
               )}
-              <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${mine ? 'bg-brand text-white rounded-br-sm' : 'bg-surface-2 text-text rounded-bl-sm'}`}>{m.body}</div>
+              <div className="relative max-w-[75%]">
+                <div className={`rounded-2xl px-4 py-2 text-sm ${mine ? 'bg-brand text-white rounded-br-sm' : 'bg-surface-2 text-text rounded-bl-sm'}`}>{m.body}</div>
+                {/* Réactions posées */}
+                {(reactions[m.id]?.length > 0) && (
+                  <div className={`flex flex-wrap gap-1 mt-1 ${mine ? 'justify-end' : 'justify-start'}`}>
+                    {Object.entries((reactions[m.id] || []).reduce((acc, r) => { acc[r.emoji] = (acc[r.emoji] || 0) + 1; return acc; }, {})).map(([emo, n]) => {
+                      const mineReact = (reactions[m.id] || []).some(r => r.userId === me.id && r.emoji === emo);
+                      return <button key={emo} onClick={() => typeof m.id === 'number' && react(m.id, emo)} className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs border ${mineReact ? 'border-brand bg-brand/10' : 'border-border bg-surface'}`}>{emo}{n > 1 && <span className="text-[10px] text-muted">{n}</span>}</button>;
+                    })}
+                  </div>
+                )}
+              </div>
+              {/* Bouton réagir */}
+              {typeof m.id === 'number' && (
+                <div className="relative">
+                  <button onClick={() => setReactMenu(reactMenu === m.id ? null : m.id)} className="opacity-0 group-hover:opacity-100 text-muted hover:text-brand transition-opacity p-1"><SmilePlus className="h-3.5 w-3.5" /></button>
+                  {reactMenu === m.id && (
+                    <div className={`absolute z-20 bottom-7 ${mine ? 'right-0' : 'left-0'} flex gap-1 rounded-full bg-surface border border-border px-2 py-1.5 shadow-card animate-popIn`}>
+                      {EMOJIS.map(e => <button key={e} onClick={() => react(m.id, e)} className="text-lg hover:scale-125 transition-transform">{e}</button>)}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
+        {/* Indicateur "écrit…" */}
+        {typing && (
+          <div className="flex justify-start">
+            <div className="rounded-2xl rounded-bl-sm bg-surface-2 px-4 py-3 inline-flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-muted animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="h-1.5 w-1.5 rounded-full bg-muted animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="h-1.5 w-1.5 rounded-full bg-muted animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+          </div>
+        )}
         {/* Indicateur Vu / Envoyé sous le dernier message envoyé */}
-        {lastMine && (
+        {lastMine && !typing && (
           <div className="flex justify-end pr-1">
             <span className="text-[11px] text-muted inline-flex items-center gap-1">
               {lastRead && lastRead >= lastMine.createdAt ? <><CheckCheck className="h-3 w-3 text-brand" /> Vu</> : <><Check className="h-3 w-3" /> Envoyé</>}
@@ -151,7 +212,7 @@ function Thread({ friend, me }) {
       </div>
 
       <div className="p-3 border-t border-border flex gap-2">
-        <input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} maxLength={1000}
+        <input value={text} onChange={e => onType(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} maxLength={1000}
           placeholder={`Message à ${name}…`} className="flex-1 rounded-xl border border-border bg-surface-2 px-4 py-2.5 text-sm outline-none focus:border-brand" />
         <Button onClick={send} disabled={sending}><Send className="h-4 w-4" /></Button>
       </div>

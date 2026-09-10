@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Copy, Crown, LogOut, Play, Check, X, Settings, UserX, Share2, Wifi, WifiOff, UserPlus2, Gamepad2, Users2 } from 'lucide-react';
+import { Copy, Crown, LogOut, Play, Check, X, Settings, UserX, Share2, Wifi, WifiOff, UserPlus2, Gamepad2, Users2, MessageCircle } from 'lucide-react';
 import { getSocket } from '../lib/socket.js';
 import { Card, Button, Avatar, Tag, Spinner } from '../components/ui/index.jsx';
 import { useToast } from '../context/ToastContext.jsx';
@@ -16,7 +16,16 @@ import Wyr from '../games/wyr/Wyr.jsx';
 import NumberDuel from '../games/numberduel/NumberDuel.jsx';
 import WordDuel from '../games/wordduel/WordDuel.jsx';
 import Couple from '../games/couple/Couple.jsx';
+import Bac from '../games/bac/Bac.jsx';
+import TwoLies from '../games/twolies/TwoLies.jsx';
+import Assoc from '../games/assoc/Assoc.jsx';
+import NousQuiz from '../games/nousquiz/NousQuiz.jsx';
+import Rate from '../games/rate/Rate.jsx';
+import GuessNote from '../games/guessnote/GuessNote.jsx';
+import Ask from '../games/ask/Ask.jsx';
 import Chat from '../components/Chat.jsx';
+import PartyMode from '../components/PartyMode.jsx';
+import { gameById } from '../games/registry.js';
 import { sound } from '../lib/sound.js';
 
 const DUEL_TYPES = ['morpion', 'connect4', 'rps', 'reflexduel', 'mathduel', 'quizduel', 'typerace', 'nim', 'memoduel', 'dots'];
@@ -86,7 +95,7 @@ export default function Room() {
   const inLobby = room.phase === 'lobby';
 
   return (
-    <div className="py-8 max-w-3xl mx-auto space-y-5">
+    <div className={`py-6 sm:py-8 mx-auto w-full px-1 space-y-5 transition-[max-width] ${inLobby ? 'max-w-3xl' : 'max-w-5xl'}`}>
       {/* En-tête salon premium */}
       <div className="relative overflow-hidden rounded-3xl gradient-border p-5 md:p-6" style={{ background: 'linear-gradient(135deg, rgb(var(--brand)/0.14), rgb(var(--brand-2)/0.08))' }}>
         <div className="absolute -right-8 -top-10 opacity-10 pointer-events-none"><Gamepad2 className="h-44 w-44 text-brand" /></div>
@@ -123,7 +132,7 @@ export default function Room() {
             ? (room.bluff && <Tag color="warning">Manche {room.bluff.turn}/{room.bluff.total}</Tag>)
             : room.gameType === 'caption'
             ? (room.caption && <Tag color="warning">Manche {room.caption.turn}/{room.caption.total}</Tag>)
-            : DUEL_TYPES.includes(room.gameType) || ['wyrduel', 'nbduel', 'wordduel', 'coupleduo'].includes(room.gameType)
+            : DUEL_TYPES.includes(room.gameType) || ['wyrduel', 'nbduel', 'wordduel', 'coupleduo', 'bacduel', 'twolies', 'assoc', 'nousquiz', 'rateduo', 'guessnote', 'askduo'].includes(room.gameType)
             ? null
             : <Tag color="warning">Manche {room.round}/{room.settings.rounds}</Tag>)}
         </div>
@@ -151,69 +160,74 @@ export default function Room() {
           <InviteFriends />
           <Chat socket={getSocket()} room={room} playerId={playerId} compact />
         </>
-      ) : room.gameType === 'draw' ? (
-        <div className="grid lg:grid-cols-3 gap-4">
-          <Card className="p-4 lg:col-span-2">
-            <DrawGuess socket={getSocket()} room={room} playerId={playerId} endsAt={endsAt} />
-          </Card>
-          <Chat socket={getSocket()} room={room} playerId={playerId} />
-        </div>
-      ) : room.gameType === 'party' ? (
-        <div className="grid lg:grid-cols-3 gap-4">
-          <Card className="p-5 lg:col-span-2">
-            <Party socket={getSocket()} room={room} playerId={playerId} endsAt={endsAt} />
-          </Card>
-          <Chat socket={getSocket()} room={room} playerId={playerId} />
-        </div>
-      ) : room.gameType === 'bluff' ? (
-        <div className="grid lg:grid-cols-3 gap-4">
-          <Card className="p-5 lg:col-span-2">
-            <Bluff socket={getSocket()} room={room} playerId={playerId} endsAt={endsAt} />
-          </Card>
-          <Chat socket={getSocket()} room={room} playerId={playerId} />
-        </div>
-      ) : room.gameType === 'caption' ? (
-        <div className="grid lg:grid-cols-3 gap-4">
-          <Card className="p-5 lg:col-span-2">
-            <Caption socket={getSocket()} room={room} playerId={playerId} endsAt={endsAt} />
-          </Card>
-          <Chat socket={getSocket()} room={room} playerId={playerId} />
-        </div>
-      ) : room.gameType === 'wyrduel' ? (
-        <div className="grid lg:grid-cols-3 gap-4">
-          <Card className="p-5 lg:col-span-2">
-            <Wyr socket={getSocket()} room={room} playerId={playerId} />
-          </Card>
-          <Chat socket={getSocket()} room={room} playerId={playerId} />
-        </div>
-      ) : room.gameType === 'nbduel' ? (
-        <div className="grid lg:grid-cols-3 gap-4">
-          <Card className="p-5 lg:col-span-2"><NumberDuel socket={getSocket()} room={room} playerId={playerId} /></Card>
-          <Chat socket={getSocket()} room={room} playerId={playerId} />
-        </div>
-      ) : room.gameType === 'wordduel' ? (
-        <div className="grid lg:grid-cols-3 gap-4">
-          <Card className="p-5 lg:col-span-2"><WordDuel socket={getSocket()} room={room} playerId={playerId} /></Card>
-          <Chat socket={getSocket()} room={room} playerId={playerId} />
-        </div>
-      ) : room.gameType === 'coupleduo' ? (
-        <div className="grid lg:grid-cols-3 gap-4">
-          <Card className="p-5 lg:col-span-2"><Couple socket={getSocket()} room={room} playerId={playerId} /></Card>
-          <Chat socket={getSocket()} room={room} playerId={playerId} />
-        </div>
-      ) : DUEL_TYPES.includes(room.gameType) ? (
-        <div className="grid lg:grid-cols-3 gap-4">
-          <Card className="p-5 lg:col-span-2">
-            <Duel socket={getSocket()} room={room} playerId={playerId} />
-          </Card>
-          <Chat socket={getSocket()} room={room} playerId={playerId} />
-        </div>
       ) : (
-        <div className="grid lg:grid-cols-3 gap-4">
-          <Card className="p-5 lg:col-span-2">
-            <Imposter socket={getSocket()} room={room} playerId={playerId} endsAt={endsAt} />
-          </Card>
-          <Chat socket={getSocket()} room={room} playerId={playerId} />
+        <GameStage room={room} playerId={playerId} endsAt={endsAt} />
+      )}
+    </div>
+  );
+}
+
+// Table jeu -> composant (une seule source de vérité, plus de duplication)
+const GAME_UI = {
+  imposter: Imposter, draw: DrawGuess, party: Party, bluff: Bluff, caption: Caption,
+  wyrduel: Wyr, nbduel: NumberDuel, wordduel: WordDuel, coupleduo: Couple,
+  bacduel: Bac, twolies: TwoLies, assoc: Assoc, nousquiz: NousQuiz, rateduo: Rate, guessnote: GuessNote, askduo: Ask,
+  morpion: Duel, connect4: Duel, rps: Duel, reflexduel: Duel, mathduel: Duel,
+  quizduel: Duel, typerace: Duel, nim: Duel, memoduel: Duel, dots: Duel,
+};
+
+// Aire de jeu premium et responsive : jeu au centre, chat en colonne (grand écran)
+// ou en tiroir accessible via un bouton (téléphone / tablette).
+function GameStage({ room, playerId, endsAt }) {
+  const [chatOpen, setChatOpen] = useState(false);
+  const GameComp = GAME_UI[room.gameType];
+  const stageGame = gameById(room.gameType);
+  const socket = getSocket();
+  const game = room.gameType && GAME_UI[room.gameType]
+    ? <GameComp socket={socket} room={room} playerId={playerId} endsAt={endsAt} />
+    : <div className="py-16 text-center text-muted"><Spinner className="mx-auto" /></div>;
+
+  return (
+    <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] gap-4 items-start">
+      <PartyMode socket={socket} room={room} playerId={playerId} />
+      {/* Scène de jeu */}
+      <div className="card-glow rounded-3xl overflow-hidden">
+        {stageGame && (
+          <div className="flex items-center gap-2.5 px-4 sm:px-5 py-3 border-b border-border" style={{ background: `linear-gradient(90deg, ${stageGame.color[0]}1f, transparent)` }}>
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg text-white flex-none" style={{ background: `linear-gradient(135deg, ${stageGame.color[0]}, ${stageGame.color[1]})` }}>
+              <stageGame.icon className="h-4 w-4" />
+            </span>
+            <span className="font-display font-bold text-sm">{stageGame.name}</span>
+            <span className="ml-auto text-[11px] text-muted hidden sm:inline">{stageGame.players} joueurs · {stageGame.tagline}</span>
+          </div>
+        )}
+        <div className="p-4 sm:p-6 min-h-[56vh] flex flex-col justify-center">
+          {game}
+        </div>
+      </div>
+
+      {/* Chat colonne (grand écran) */}
+      <div className="hidden lg:block sticky top-20">
+        <Chat socket={socket} room={room} playerId={playerId} />
+      </div>
+
+      {/* Bouton chat (mobile / tablette) */}
+      <button onClick={() => setChatOpen(true)} className="lg:hidden fixed bottom-5 right-5 z-40 h-14 w-14 rounded-full bg-gradient-to-br from-brand to-brand-2 text-white shadow-glow flex items-center justify-center active:scale-95 transition-transform" aria-label="Ouvrir le chat">
+        <MessageCircle className="h-6 w-6" />
+      </button>
+
+      {/* Tiroir chat (mobile / tablette) */}
+      {chatOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fadeIn" onClick={() => setChatOpen(false)} />
+          <div className="relative z-10 animate-slideUp" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+            <div className="flex justify-end px-3 pb-1">
+              <button onClick={() => setChatOpen(false)} className="rounded-full bg-surface/80 backdrop-blur p-2 text-muted hover:text-text mb-1"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="px-2">
+              <Chat socket={socket} room={room} playerId={playerId} />
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -228,7 +242,7 @@ function LobbyControls({ room, me, isHost }) {
   const isParty = room.gameType === 'party';
   const isBluff = room.gameType === 'bluff';
   const isCaption = room.gameType === 'caption';
-  const isDuel = DUEL_TYPES.includes(room.gameType) || ['wyrduel', 'nbduel', 'wordduel', 'coupleduo'].includes(room.gameType);
+  const isDuel = DUEL_TYPES.includes(room.gameType) || ['wyrduel', 'nbduel', 'wordduel', 'coupleduo', 'bacduel', 'twolies', 'assoc', 'nousquiz', 'rateduo', 'guessnote', 'askduo'].includes(room.gameType);
   const isCouple = room.gameType === 'coupleduo';
   const canStart = isDuel ? room.players.length === 2 : room.players.length >= 3;
 
@@ -248,7 +262,7 @@ function LobbyControls({ room, me, isHost }) {
         </div>
         <h3 className="font-semibold mb-2 mt-3 text-sm text-muted">En duel (2 joueurs)</h3>
         <div className="grid grid-cols-5 gap-2">
-          {[{ id: 'morpion', emo: '#️⃣', name: 'Morpion' }, { id: 'connect4', emo: '🔴', name: 'Puiss.4' }, { id: 'rps', emo: '✊', name: 'PFC' }, { id: 'reflexduel', emo: '⚡', name: 'Réflexe' }, { id: 'mathduel', emo: '➗', name: 'Calcul' }, { id: 'quizduel', emo: '❓', name: 'Quiz' }, { id: 'typerace', emo: '⌨️', name: 'Frappe' }, { id: 'nim', emo: '🥢', name: 'Bâtonnets' }, { id: 'memoduel', emo: '🃏', name: 'Mémoire' }, { id: 'dots', emo: '⬜', name: 'Carrés' }, { id: 'wyrduel', emo: '⚖️', name: 'Tu préfères' }, { id: 'nbduel', emo: '🔢', name: 'Nombre' }, { id: 'wordduel', emo: '🔤', name: 'Mot secret' }, { id: 'coupleduo', emo: '💞', name: 'Compatibilité' }].map(g => (
+          {[{ id: 'morpion', emo: '#️⃣', name: 'Morpion' }, { id: 'connect4', emo: '🔴', name: 'Puiss.4' }, { id: 'rps', emo: '✊', name: 'PFC' }, { id: 'reflexduel', emo: '⚡', name: 'Réflexe' }, { id: 'mathduel', emo: '➗', name: 'Calcul' }, { id: 'quizduel', emo: '❓', name: 'Quiz' }, { id: 'typerace', emo: '⌨️', name: 'Frappe' }, { id: 'nim', emo: '🥢', name: 'Bâtonnets' }, { id: 'memoduel', emo: '🃏', name: 'Mémoire' }, { id: 'dots', emo: '⬜', name: 'Carrés' }, { id: 'wyrduel', emo: '⚖️', name: 'Tu préfères' }, { id: 'nbduel', emo: '🔢', name: 'Nombre' }, { id: 'wordduel', emo: '🔤', name: 'Mot secret' }, { id: 'coupleduo', emo: '💞', name: 'Compatibilité' }, { id: 'bacduel', emo: '📝', name: 'Le Bac' }, { id: 'twolies', emo: '🤥', name: '2 vérités' }, { id: 'assoc', emo: '💭', name: 'Assoc' }, { id: 'nousquiz', emo: '💑', name: 'Nous' }, { id: 'rateduo', emo: '⭐', name: 'Note ça' }, { id: 'guessnote', emo: '🎯', name: 'Devine note' }, { id: 'askduo', emo: '🎤', name: 'Balance tout' }].map(g => (
             <button key={g.id} disabled={!isHost} onClick={() => socket.emit('room:setGame', { gameType: g.id })}
               className={`rounded-xl border p-2 text-center transition-all ${room.gameType === g.id ? 'border-brand bg-brand/10' : 'border-border bg-surface-2 hover:border-brand/40'} ${!isHost ? 'opacity-70 cursor-default' : ''}`}>
               <div className="text-lg">{g.emo}</div>

@@ -299,3 +299,46 @@ export const COUPLE_FLIRT = [
   { q: 'Après un date qui se passe bien, tu…', options: ['Envoies un message direct', 'Attends un peu (pour le style)', 'Proposes de se revoir vite'] },
   { q: 'Le compliment qui te touche le plus ?', options: ['« Tu es magnifique »', '« J\u2019adore ton rire »', '« Je me sens bien avec toi »'] },
 ];
+
+/* ---------------- Le Bac (petit bac) ---------------- */
+export const BAC_CATEGORIES = ['Prénom', 'Ville / Pays', 'Animal', 'Métier', 'Nourriture', 'Objet', 'Couleur ou Marque'];
+export const BAC_LETTERS = 'ABCDEFGHIJLMNOPRSTV'.split(''); // lettres jouables (on évite K,Q,W,X,Y,Z difficiles)
+
+/* ---------------- Association d'idées (mots de départ) ---------------- */
+export const ASSOC_STARTERS = ['soleil', 'chat', 'école', 'mer', 'musique', 'nuit', 'chocolat', 'voyage', 'rêve', 'pluie', 'feu', 'livre', 'étoile', 'sourire', 'hiver', 'fleur', 'route', 'café', 'montagne', 'silence'];
+
+/* ---------------- Quiz "spécial nous" (thèmes de questions à créer) ---------------- */
+// Le joueur écrit sa propre question + la vraie réponse ; l'autre devine.
+export const NOUS_PROMPTS = [
+  'Ma couleur préférée ?', 'Mon plat préféré ?', 'Mon film ou ma série du moment ?',
+  'Ma plus grande peur ?', 'Mon rêve le plus fou ?', 'Ma saison préférée ?',
+  'Mon animal préféré ?', 'Ce qui me fait le plus rire ?', 'Mon endroit préféré ?',
+  'Une chose que je ne pourrais pas rater ?', 'Mon défaut le plus mignon ?', 'Ma passion secrète ?',
+];
+
+/* ---------------- "Note ça" : sujets libres (le joueur propose, sinon suggestions) ---------------- */
+export const RATE_SUBJECTS = ['McDo', 'le Coca', 'les lundis', 'la pizza ananas', 'les films d\u2019horreur', 'le camping', 'les selfies', 'le café', 'la neige', 'les maths', 'les chats', 'le sport le matin', 'les séries à binge-watcher', 'les surprises', 'la plage', 'le chocolat noir', 'les réveils tôt', 'la musique en soirée'];
+
+/* ---------------- "Devine la note" : le site note un sujet, on fait deviner avec des indices ---------------- */
+// Note fixe pré-enregistrée (la "note de PLAYROOM"), à faire deviner avec des mots.
+export const GUESS_RATINGS = [
+  { subject: 'La pizza', note: 9 }, { subject: 'Les lundis', note: 3 }, { subject: 'Le chocolat', note: 9 },
+  { subject: 'Les devoirs', note: 2 }, { subject: 'Les vacances', note: 10 }, { subject: 'La pluie', note: 4 },
+  { subject: 'Les câlins', note: 9 }, { subject: 'Le réveil à 6h', note: 2 }, { subject: 'Le week-end', note: 10 },
+  { subject: 'Les épinards', note: 4 }, { subject: 'La musique', note: 8 }, { subject: 'Le sport', note: 7 },
+  { subject: 'Les embouteillages', note: 1 }, { subject: 'Un bon film', note: 8 }, { subject: 'Les surprises', note: 7 },
+  { subject: 'Le café du matin', note: 8 }, { subject: 'Les maths', note: 5 }, { subject: 'La plage', note: 9 },
+  { subject: 'Les factures', note: 1 }, { subject: 'Les jeux vidéo', note: 8 }, { subject: 'La neige', note: 6 },
+  { subject: 'Les moustiques', note: 1 }, { subject: 'Un fou rire', note: 10 }, { subject: 'Le dentiste', note: 3 },
+];
+
+/* ---------------- "Balance tout" : questions suggérées (on peut écrire les siennes) ---------------- */
+export const ASK_SUGGEST = [
+  'C\u2019est quoi ton plat préféré ?', 'Ton pire souvenir d\u2019école ?', 'Ton rêve le plus fou ?',
+  'La chanson que tu écoutes en boucle ?', 'Un truc dont tu es fier ?', 'Ta plus grande peur ?',
+  'Si tu pouvais voyager n\u2019importe où, où irais-tu ?', 'Ton film ou ta série coup de cœur ?',
+  'Une manie bizarre que tu as ?', 'C\u2019est quoi ton petit plaisir coupable ?', 'Ton animal préféré et pourquoi ?',
+  'Un talent caché ?', 'Le dernier truc qui t\u2019a fait rire aux éclats ?', 'Ta saison préférée ?',
+  'Un endroit où tu te sens bien ?', 'Si tu étais un personnage de fiction, lequel ?',
+  'Qu\u2019est-ce qui te rend heureux(se) en ce moment ?', 'Une chose que tu aimerais apprendre ?',
+];

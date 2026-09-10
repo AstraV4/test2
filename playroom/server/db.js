@@ -188,6 +188,9 @@ export function listFriendIds(userId) { return _friendIds.all(userId, userId).ma
 export function listFriends(userId) {
   return listFriendIds(userId).map(id => { const u = findUserById(id); return u ? publicUser(u) : null; }).filter(Boolean);
 }
+// Depuis quand deux personnes sont amies (timestamp de création de l'amitié)
+const _friendSince = db.prepare('SELECT created_at FROM friendships WHERE u_lo = ? AND u_hi = ?');
+export function friendsSince(a, b) { const [lo, hi] = lohi(a, b); return _friendSince.get(lo, hi)?.created_at || null; }
 const _insReq = db.prepare('INSERT OR IGNORE INTO friend_requests (from_id, to_id, created_at) VALUES (?, ?, ?)');
 const _getReq = db.prepare('SELECT 1 FROM friend_requests WHERE from_id = ? AND to_id = ?');
 export function sendRequest(fromId, toId) {
@@ -398,5 +401,37 @@ const _delGameFav = db.prepare('DELETE FROM game_favorites WHERE user_id = ? AND
 const _listGameFav = db.prepare('SELECT game_id FROM game_favorites WHERE user_id = ?');
 export function setGameFavorite(userId, gameId, on) { const g = String(gameId).slice(0, 32); if (on) _addGameFav.run(userId, g); else _delGameFav.run(userId, g); }
 export function listGameFavorites(userId) { return _listGameFav.all(userId).map(r => r.game_id); }
+
+/* ---------------- Réactions aux messages ---------------- */
+db.exec(`CREATE TABLE IF NOT EXISTS dm_reactions (msg_id INTEGER NOT NULL, user_id INTEGER NOT NULL, emoji TEXT NOT NULL, PRIMARY KEY (msg_id, user_id));`);
+const ALLOWED_EMOJI = ['❤️', '😂', '👍', '😮', '🔥', '😍'];
+const _setReact = db.prepare('INSERT INTO dm_reactions (msg_id, user_id, emoji) VALUES (?, ?, ?) ON CONFLICT(msg_id, user_id) DO UPDATE SET emoji = excluded.emoji');
+const _delReact = db.prepare('DELETE FROM dm_reactions WHERE msg_id = ? AND user_id = ?');
+const _getReactOne = db.prepare('SELECT emoji FROM dm_reactions WHERE msg_id = ? AND user_id = ?');
+// Renvoie l'autre participant du message (pour la notif temps réel), ou null.
+export function reactDm(userId, msgId, emoji) {
+  const row = _getDm.get(msgId);
+  if (!row) return null;
+  if (row.from_id !== userId && row.to_id !== userId) return null; // pas concerné
+  if (emoji && ALLOWED_EMOJI.includes(emoji)) {
+    const cur = _getReactOne.get(msgId, userId)?.emoji;
+    if (cur === emoji) _delReact.run(msgId, userId); // re-cliquer la même = retirer
+    else _setReact.run(msgId, userId, emoji);
+  } else {
+    _delReact.run(msgId, userId);
+  }
+  const other = row.from_id === userId ? row.to_id : row.from_id;
+  return { other, reactions: reactionsFor(msgId) };
+}
+const _reactsFor = db.prepare('SELECT user_id AS userId, emoji FROM dm_reactions WHERE msg_id = ?');
+export function reactionsFor(msgId) { return _reactsFor.all(msgId); }
+// Réactions groupées pour une liste de messages -> { msgId: [{userId, emoji}] }
+export function reactionsForThread(msgIds) {
+  if (!msgIds.length) return {};
+  const out = {};
+  const stmt = db.prepare(`SELECT msg_id AS msgId, user_id AS userId, emoji FROM dm_reactions WHERE msg_id IN (${msgIds.map(() => '?').join(',')})`);
+  for (const r of stmt.all(...msgIds)) { (out[r.msgId] ||= []).push({ userId: r.userId, emoji: r.emoji }); }
+  return out;
+}
 
 export default db;

@@ -62,3 +62,29 @@ npm run dev
 - Accusés de lecture (« Vu ») et dernière connexion (« vu il y a… »).
 - Jeux en favoris (⭐ sur les cartes + section « Mes favoris »).
 - Salon multijoueur redesigné (en-tête premium, avatars en ligne, cartes joueurs).
+
+## Nouveautés (partie 1)
+- Nouveau jeu à 2 : Le Bac (petit bac / catégories).
+- Chat : indicateur « écrit… » quand l'autre tape.
+- Profil : compteur « amis depuis X jours » avec paliers fêtés.
+
+## Nouveautés (lot 2)
+- 5 nouveaux jeux à 2 : 2 Vérités 1 Mensonge, Association d'idées, Quiz spécial nous, Note ça, Devine la note.
+- Profil cliquable depuis le chat de salon.
+
+## Aire de jeu refondue (pro & responsive)
+- Zone de jeu unifiée (fin de la duplication) : une scène premium centrée, bandeau titre du jeu (icône + nom).
+- Responsive : sur téléphone/tablette le jeu prend toute la largeur et le chat s'ouvre en tiroir via un bouton flottant ; sur grand écran, chat en colonne collante.
+- Conteneur élargi en partie, gestion des encoches (safe-area), zéro bloc dupliqué.
+
+## Musique d'ambiance
+- Bouton musique dans le header (à côté du son) : une boucle douce générée en WebAudio (aucun fichier, zéro poids, aucun souci de licence). Activable/désactivable, préférence mémorisée.
+
+## Mode fête
+- À la fin de n'importe quelle partie, tout l'écran s'illumine : halo, rayons lumineux, émojis qui montent, confettis, avatar du gagnant et grand message (« Victoire ! », « X gagne », « Égalité ! » ou « X% ensemble » pour les jeux d'affinité). Centralisé : marche sur tous les jeux.
+
+## Réactions emoji (chat entre amis)
+- Réagis à un message d'un ami (❤️ 😂 👍 😮 🔥 😍) : survole/tape le message, choisis l'emoji. Re-cliquer retire ta réaction. Comptage groupé sous le message, mise à jour en temps réel.
+
+## Nouveau jeu : Balance tout
+- Jeu à 2 pour mieux se connaître : chacun son tour pose une question libre (avec suggestions), l'autre est obligé de répondre. Historique des échanges + récap à la fin. Pas de points.

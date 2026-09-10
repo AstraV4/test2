@@ -1,4 +1,4 @@
-import { Zap, Brain, Hash, Shuffle, HelpCircle, Sparkles, Ghost, Calculator, Keyboard, Grid3x3, Palette, PartyPopper, Feather, MessageSquare, Swords, Hand, CircleDot, Divide, Timer, Layers, Minus, Grid2x2, Scale, Type, Heart } from 'lucide-react';
+import { Zap, Brain, Hash, Shuffle, HelpCircle, Sparkles, Ghost, Calculator, Keyboard, Grid3x3, Palette, PartyPopper, Feather, MessageSquare, Swords, Hand, CircleDot, Divide, Timer, Layers, Minus, Grid2x2, Scale, Type, Heart, HeartHandshake, Gauge, Star } from 'lucide-react';
 
 // Métadonnées communes à tous les jeux. Ajouter un jeu = ajouter une entrée ici
 // + un composant dans src/games/<id>/. Le reste (fiche, routes, cartes) est générique.
@@ -195,6 +195,56 @@ export const GAMES = [
     color: ['#34d399', '#22d3ee'], ambiance: 'grid', mode: 'multi', category: ['Duel', 'Multijoueur', 'Réflexion'],
     players: '2', duration: '4-7 min', difficulty: 'Moyen', avgScore: null, tags: ['Duel', '1v1'],
     featured: false, isNew: true,
+  },
+  {
+    id: 'bacduel', slug: 'le-bac', name: 'Le Bac', icon: Feather,
+    tagline: 'Une lettre, des catégories, à remplir avant l\u2019autre.',
+    description: "Le petit bac en duel : une lettre est tirée, remplissez chaque catégorie (prénom, ville, animal…) par un mot qui commence par cette lettre, avant la fin du chrono. On compare, on marque des points sur 3 manches. Fous rires garantis.",
+    color: ['#f59e0b', '#22d3be'], ambiance: 'word', mode: 'multi', category: ['Duel', 'Multijoueur', 'Jeux de mots'],
+    players: '2', duration: '5-8 min', difficulty: 'Facile', avgScore: null, tags: ['Duel', '1v1', 'Mots'],
+    featured: true, isNew: true,
+  },
+  {
+    id: 'twolies', slug: 'deux-verites-un-mensonge', name: '2 Vérités, 1 Mensonge', icon: Ghost,
+    tagline: 'Écris 2 vérités et 1 mensonge, l\u2019autre devine.',
+    description: "Chacun son tour, écris trois affirmations sur toi : deux vraies, une fausse. L'autre doit démasquer le mensonge. Parfait pour apprendre à se connaître (et se surprendre).",
+    color: ['#a855f7', '#f43f5e'], ambiance: 'mystery', mode: 'multi', category: ['Duo/Couple', 'Duel', 'Entre amis'],
+    players: '2', duration: '5-8 min', difficulty: 'Facile', avgScore: null, tags: ['Duo', '1v1'], featured: true, isNew: true,
+  },
+  {
+    id: 'assoc', slug: 'association-idees', name: 'Association d\u2019idées', icon: Zap,
+    tagline: 'Le premier mot qui vient — êtes-vous synchro ?',
+    description: "Un mot s'affiche, vous répondez tous les deux en même temps par le premier mot qui vous vient (5 s !). Si c'est le même : vous êtes sur la même longueur d'onde. Rapide et hilarant.",
+    color: ['#facc15', '#22d3be'], ambiance: 'speed', mode: 'multi', category: ['Duo/Couple', 'Duel', 'Parties rapides'],
+    players: '2', duration: '3-5 min', difficulty: 'Facile', avgScore: null, tags: ['Duo', '1v1', 'Rapide'], featured: false, isNew: true,
+  },
+  {
+    id: 'nousquiz', slug: 'quiz-special-nous', name: 'Quiz spécial nous', icon: HeartHandshake,
+    tagline: 'Des questions sur vous — à quel point vous connaissez-vous ?',
+    description: "Chacun son tour, pose une question sur toi (ta couleur préférée ? ta plus grande peur ?) avec plusieurs réponses. L'autre devine. Plus vous devinez juste, plus vous vous connaissez.",
+    color: ['#ec4899', '#7c5cff'], ambiance: 'mystery', mode: 'multi', category: ['Duo/Couple', 'Duel', 'Entre amis'],
+    players: '2', duration: '6-10 min', difficulty: 'Facile', avgScore: null, tags: ['Duo', '1v1', 'Couple'], featured: true, isNew: true,
+  },
+  {
+    id: 'rateduo', slug: 'note-ca', name: 'Note ça', icon: Star,
+    tagline: 'Vous notez le même truc sur 10 — d\u2019accord ou pas ?',
+    description: "À tour de rôle, un joueur propose un sujet (McDo, les lundis…) et vous le notez tous les deux sur 10, en secret. On compare : plus vos notes se ressemblent, plus vous êtes d'accord. Fous rires garantis.",
+    color: ['#fb923c', '#ec4899'], ambiance: 'number', mode: 'multi', category: ['Duo/Couple', 'Duel', 'Entre amis'],
+    players: '2', duration: '5-8 min', difficulty: 'Facile', avgScore: null, tags: ['Duo', '1v1'], featured: true, isNew: true,
+  },
+  {
+    id: 'guessnote', slug: 'devine-la-note', name: 'Devine la note', icon: Gauge,
+    tagline: 'Le site note un truc /10, fais-le deviner avec des mots.',
+    description: "PLAYROOM attribue une note secrète sur 10 à un sujet. Un joueur la voit et doit la faire deviner à l'autre avec des indices (des mots, pas de chiffres !). Plus la devinette est proche, plus on marque.",
+    color: ['#38bdf8', '#6366f1'], ambiance: 'number', mode: 'multi', category: ['Duel', 'Multijoueur', 'Entre amis'],
+    players: '2', duration: '5-8 min', difficulty: 'Moyen', avgScore: null, tags: ['Duel', '1v1'], featured: false, isNew: true,
+  },
+  {
+    id: 'askduo', slug: 'balance-tout', name: 'Balance tout', icon: HeartHandshake,
+    tagline: 'Pose une question, l\u2019autre est obligé de répondre.',
+    description: "Chacun son tour, tu poses la question que tu veux à l'autre (c'est quoi ton plat préféré ? ton pire souvenir ?) — et il/elle est obligé(e) de répondre. Pas de points, juste pour mieux se connaître et lancer de vraies discussions.",
+    color: ['#7c5cff', '#ec4899'], ambiance: 'mystery', mode: 'multi', category: ['Duo/Couple', 'Duel', 'Entre amis'],
+    players: '2', duration: '5-15 min', difficulty: 'Facile', avgScore: null, tags: ['Duo', '1v1', 'Couple'], featured: true, isNew: true,
   },
   {
     id: 'wyrduel', slug: 'tu-preferes', name: 'Tu préfères ?', icon: Scale,

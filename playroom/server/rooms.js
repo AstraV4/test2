@@ -1,5 +1,5 @@
 import { customAlphabet } from 'nanoid';
-import { pickImposterWord, IMPOSTER_THEME_LIST, DRAW_WORDS, buildPartyRound, BLUFF_QA, CAPTION_PROMPTS, QUIZ, WYR_SUGGEST, COUPLE_QUESTIONS, COUPLE_FLIRT } from './gamedata.js';
+import { pickImposterWord, IMPOSTER_THEME_LIST, DRAW_WORDS, buildPartyRound, BLUFF_QA, CAPTION_PROMPTS, QUIZ, WYR_SUGGEST, COUPLE_QUESTIONS, COUPLE_FLIRT, BAC_CATEGORIES, BAC_LETTERS, ASSOC_STARTERS, NOUS_PROMPTS, RATE_SUBJECTS, GUESS_RATINGS, ASK_SUGGEST } from './gamedata.js';
 import { recordDuoPlay } from './db.js';
 
 const genCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 5);
@@ -149,6 +149,63 @@ export class RoomManager {
         result: room.coupleResult || null,
       };
     }
+    if (room.gameType === 'bacduel' && room.bac) {
+      const bc = room.bac;
+      base.bac = {
+        letter: bc.letter, categories: bc.categories, durationSec: bc.durationSec,
+        round: room.bacRound || 0, total: room.bacTotal || 0, scores: bc.scores,
+        submitted: Object.keys(bc.answers || {}),
+        reveal: (room.phase === 'bacReveal') ? bc.reveal : null,
+      };
+    }
+    if (room.gameType === 'twolies' && room.tl) {
+      const t = room.tl;
+      base.tl = {
+        phase: room.phase, round: room.tlRound || 0, total: room.tlTotal || 0, scores: t.scores,
+        tellerId: t.teller, statements: (room.phase === 'tlGuess' || room.phase === 'tlReveal') ? t.shuffled : null,
+        writtenIds: Object.keys(t.written || {}), guess: t.guess != null ? true : false,
+        reveal: (room.phase === 'tlReveal') ? t.reveal : null,
+      };
+    }
+    if (room.gameType === 'assoc' && room.assoc) {
+      const A = room.assoc;
+      base.assoc = { round: room.assRound || 0, total: room.assTotal || 0, current: A.current, turnId: A.turn, chain: A.chain, matches: room.assMatches || 0, reveal: (room.phase === 'assReveal') ? A.reveal : null, result: room.assResult || null };
+    }
+    if (room.gameType === 'nousquiz' && room.nq) {
+      const N = room.nq;
+      base.nq = {
+        phase: room.phase, round: room.nqRound || 0, total: room.nqTotal || 0, scores: N.scores,
+        askerId: N.asker, prompt: N.prompt, question: (room.phase !== 'nqWrite') ? N.question : null,
+        options: (room.phase === 'nqGuess' || room.phase === 'nqReveal') ? N.options : null,
+        reveal: (room.phase === 'nqReveal') ? N.reveal : null,
+      };
+    }
+    if (room.gameType === 'rateduo' && room.rate) {
+      const R = room.rate;
+      base.rate = {
+        phase: room.phase, round: room.rateRound || 0, total: room.rateTotal || 0,
+        proposerId: R.proposer, subject: (room.phase !== 'rateWrite') ? R.subject : null,
+        suggestion: R.suggestion, ratedIds: Object.keys(R.notes || {}),
+        reveal: (room.phase === 'rateReveal') ? R.reveal : null, matches: room.rateMatches || 0, result: room.rateResult || null,
+      };
+    }
+    if (room.gameType === 'guessnote' && room.gn) {
+      const G = room.gn;
+      base.gn = {
+        phase: room.phase, round: room.gnRound || 0, total: room.gnTotal || 0, scores: G.scores,
+        hinterId: G.hinter, subject: G.subject, clues: G.clues,
+        guessed: G.guess != null, reveal: (room.phase === 'gnReveal') ? G.reveal : null,
+      };
+    }
+    if (room.gameType === 'askduo' && room.ask) {
+      const A = room.ask;
+      base.ask = {
+        phase: room.phase, round: room.askRound || 0, total: room.askTotal || 0,
+        askerId: A.asker, suggestion: A.suggestion,
+        question: (room.phase !== 'askWrite') ? A.question : null,
+        history: A.history || [],
+      };
+    }
     return base;
   }
 
@@ -193,7 +250,7 @@ export class RoomManager {
 
   setGameType(socket, type) {
     const room = this._room(socket); if (!room || !this._isHost(room, socket) || room.phase !== 'lobby') return;
-    if (['imposter', 'draw', 'party', 'bluff', 'caption', 'morpion', 'connect4', 'rps', 'reflexduel', 'mathduel', 'quizduel', 'typerace', 'nim', 'memoduel', 'dots', 'wyrduel', 'nbduel', 'wordduel', 'coupleduo'].includes(type)) { room.gameType = type; this.emitRoom(room); this._touchActivity(room); }
+    if (['imposter', 'draw', 'party', 'bluff', 'caption', 'morpion', 'connect4', 'rps', 'reflexduel', 'mathduel', 'quizduel', 'typerace', 'nim', 'memoduel', 'dots', 'wyrduel', 'nbduel', 'wordduel', 'coupleduo', 'bacduel', 'twolies', 'assoc', 'nousquiz', 'rateduo', 'guessnote', 'askduo'].includes(type)) { room.gameType = type; this.emitRoom(room); this._touchActivity(room); }
   }
 
   // Renvoie l'état privé courant à un joueur qui (ré)affiche le jeu.
@@ -250,7 +307,7 @@ export class RoomManager {
 
   startGame(socket) {
     const room = this._room(socket); if (!room || !this._isHost(room, socket)) return;
-    const isDuel = ['morpion', 'connect4', 'rps', 'reflexduel', 'mathduel', 'quizduel', 'typerace', 'nim', 'memoduel', 'dots', 'wyrduel', 'nbduel', 'wordduel', 'coupleduo'].includes(room.gameType);
+    const isDuel = ['morpion', 'connect4', 'rps', 'reflexduel', 'mathduel', 'quizduel', 'typerace', 'nim', 'memoduel', 'dots', 'wyrduel', 'nbduel', 'wordduel', 'coupleduo', 'bacduel', 'twolies', 'assoc', 'nousquiz', 'rateduo', 'guessnote', 'askduo'].includes(room.gameType);
     if (isDuel) { if (room.players.length !== 2) return socket.emit('room:error', { message: 'Ce jeu se joue exactement à 2 joueurs.' }); }
     else if (room.players.length < 3) return socket.emit('room:error', { message: 'Il faut au moins 3 joueurs.' });
     if (room.gameType === 'draw') this._beginDraw(room);
@@ -261,6 +318,13 @@ export class RoomManager {
     else if (room.gameType === 'nbduel') { this._beginNb(room); }
     else if (room.gameType === 'wordduel') { this._beginWord(room); }
     else if (room.gameType === 'coupleduo') { this._beginCouple(room); }
+    else if (room.gameType === 'bacduel') { this._beginBac(room); }
+    else if (room.gameType === 'twolies') { this._beginTwoLies(room); }
+    else if (room.gameType === 'assoc') { this._beginAssoc(room); }
+    else if (room.gameType === 'nousquiz') { this._beginNous(room); }
+    else if (room.gameType === 'rateduo') { this._beginRate(room); }
+    else if (room.gameType === 'guessnote') { this._beginGuessNote(room); }
+    else if (room.gameType === 'askduo') { this._beginAsk(room); }
     else if (DUEL_GAMES.has(room.gameType)) { this._beginDuel(room); }
     else this._beginRound(room);
     if (isDuel) this._recordDuo(room);
@@ -341,6 +405,13 @@ export class RoomManager {
     if (room.gameType === 'nbduel') { if (room.phase === 'nbOver') this._beginNb(room); return; }
     if (room.gameType === 'wordduel') { if (room.phase === 'wordOver') this._beginWord(room); return; }
     if (room.gameType === 'coupleduo') { this._nextCouple(room); return; }
+    if (room.gameType === 'bacduel') { this._nextBac(room); return; }
+    if (room.gameType === 'twolies') { this._nextTwoLies(room); return; }
+    if (room.gameType === 'assoc') { this._nextAssoc(room); return; }
+    if (room.gameType === 'nousquiz') { this._nextNous(room); return; }
+    if (room.gameType === 'rateduo') { this._nextRate(room); return; }
+    if (room.gameType === 'guessnote') { this._nextGuessNote(room); return; }
+    if (room.gameType === 'askduo') { this._nextAsk(room); return; }
     if (DUEL_GAMES.has(room.gameType)) { if (room.duel && room.duel.matchOver) this._beginDuel(room); return; }
     if (room.round >= room.settings.rounds) { this._toLobby(room); return; }
     this._beginRound(room);
@@ -352,7 +423,7 @@ export class RoomManager {
     room.scores = null; room.guessed = null; room.drawerId = null; room.word = null;
     room.partyRound = null; room.partyReveal = null; room.partyTurn = 0; room.partyUsed = null;
     room.bluff = null; room.caption = null;
-    room.duel = null; room.wyr = null; room.nb = null; room.word2 = null; room.couple = null;
+    room.duel = null; room.wyr = null; room.nb = null; room.word2 = null; room.couple = null; room.bac = null; room.tl = null; room.assoc = null; room.nq = null; room.rate = null; room.gn = null; room.ask = null;
     room.players.forEach(p => { p.ready = false; p.eliminated = false; });
     this.io.to(room.code).emit('game:toLobby');
     this.emitRoom(room);
@@ -1086,13 +1157,409 @@ export class RoomManager {
       try { const r = recordDuoPlay(uids[0], uids[1]); this.io.to(room.code).emit('duo:streak', r); } catch { /* ignore */ }
     }
   }
+  /* ============================ Le Bac (petit bac) ============================ */
+  _beginBac(room) {
+    const ids = room.players.filter(p => p.connected).map(p => p.id);
+    if (ids.length !== 2) { this._duelNeed2(room); return; }
+    room.bacP = ids; room.bacRound = 0; room.bacTotal = 3; room.bacScores = { [ids[0]]: 0, [ids[1]]: 0 };
+    this._beginBacRound(room);
+  }
+  _beginBacRound(room) {
+    this._clearTimer(room);
+    room.bacRound += 1;
+    const letter = BAC_LETTERS[Math.floor(Math.random() * BAC_LETTERS.length)];
+    room.bac = { letter, categories: BAC_CATEGORIES, durationSec: 90, answers: {}, reveal: null, scores: room.bacScores };
+    room.phase = 'bacPlay';
+    this.emitRoom(room);
+    this._setTimer(room, 92000, () => this._bacReveal(room)); // fin de manche auto (90s + marge)
+  }
+  bacSubmit(socket, answers) {
+    const room = this._room(socket); const bc = room?.bac; if (!room || !bc || room.phase !== 'bacPlay') return;
+    const me = this._me(room, socket); if (!me || bc.answers[me.id]) return;
+    // nettoyage : une réponse par catégorie, bornée
+    const clean = (Array.isArray(answers) ? answers : []).slice(0, bc.categories.length).map(a => sanitizeClue(a));
+    bc.answers[me.id] = clean;
+    this.emitRoom(room);
+    if (room.bacP.every(id => bc.answers[id])) this._bacReveal(room);
+  }
+  _bacReveal(room) {
+    this._clearTimer(room);
+    const bc = room.bac; if (!bc || bc.reveal) return;
+    const [a, b] = room.bacP;
+    const ansA = bc.answers[a] || []; const ansB = bc.answers[b] || [];
+    const L = bc.letter.toLowerCase();
+    const rows = bc.categories.map((cat, i) => {
+      const va = (ansA[i] || '').trim(); const vb = (ansB[i] || '').trim();
+      const okA = !!va && norm(va).startsWith(norm(L));
+      const okB = !!vb && norm(vb).startsWith(norm(L));
+      // Points : 10 si valide et unique, 5 si valide mais identique à l'autre, 0 sinon
+      const same = okA && okB && norm(va) === norm(vb);
+      let pa = 0, pb = 0;
+      if (okA) pa = same ? 5 : 10;
+      if (okB) pb = same ? 5 : 10;
+      room.bacScores[a] += pa; room.bacScores[b] += pb;
+      return { cat, a: va, b: vb, okA, okB, same, pa, pb };
+    });
+    bc.reveal = { rows, letter: bc.letter, players: { [a]: room.players.find(p => p.id === a)?.name, [b]: room.players.find(p => p.id === b)?.name }, scores: room.bacScores, ids: [a, b] };
+    room.phase = 'bacReveal';
+    this.io.to(room.code).emit('bac:reveal', bc.reveal);
+    this.emitRoom(room);
+  }
+  _nextBac(room) {
+    this._clearTimer(room);
+    if (room.bacRound >= room.bacTotal) { this._endBac(room); return; }
+    this._beginBacRound(room);
+  }
+  _endBac(room) {
+    this._clearTimer(room);
+    room.phase = 'bacOver';
+    const [a, b] = room.bacP;
+    const winnerId = room.bacScores[a] === room.bacScores[b] ? 'draw' : (room.bacScores[a] > room.bacScores[b] ? a : b);
+    room.bacResult = { scores: room.bacScores, winnerId, ids: [a, b] };
+    this.io.to(room.code).emit('bac:over', room.bacResult);
+    this.emitRoom(room);
+  }
+
+  /* ============================ Deux vérités, un mensonge ============================ */
+  _beginTwoLies(room) {
+    const ids = room.players.filter(p => p.connected).map(p => p.id);
+    if (ids.length !== 2) { this._duelNeed2(room); return; }
+    room.tlP = ids; room.tlRound = 0; room.tlTotal = 6; room.tlScores = { [ids[0]]: 0, [ids[1]]: 0 };
+    this._beginTLRound(room);
+  }
+  _beginTLRound(room) {
+    this._clearTimer(room);
+    room.tlRound += 1;
+    const teller = room.tlP[(room.tlRound - 1) % 2];
+    room.tl = { teller, shuffled: null, lieShuf: null, guess: null, reveal: null, scores: room.tlScores };
+    room.phase = 'tlWrite';
+    this.emitRoom(room);
+  }
+  tlWrite(socket, data) {
+    const room = this._room(socket); const t = room?.tl; if (!room || !t || room.phase !== 'tlWrite') return;
+    const me = this._me(room, socket); if (!me || me.id !== t.teller) return;
+    const stmts = (Array.isArray(data?.statements) ? data.statements : []).map(x => sanitizeChat(x)).filter(Boolean);
+    const lie = parseInt(data?.lie, 10);
+    if (stmts.length !== 3 || !(lie === 0 || lie === 1 || lie === 2)) return;
+    const order = shuffle([0, 1, 2]);
+    t.shuffled = order.map(i => stmts[i]);
+    t.lieShuf = order.indexOf(lie);
+    room.phase = 'tlGuess';
+    this.emitRoom(room);
+    this._setTimer(room, 45000, () => { if (t.guess == null) { t.guess = Math.floor(Math.random() * 3); this._tlReveal(room); } });
+  }
+  tlGuess(socket, index) {
+    const room = this._room(socket); const t = room?.tl; if (!room || !t || room.phase !== 'tlGuess') return;
+    const me = this._me(room, socket); if (!me || me.id === t.teller) return;
+    const i = parseInt(index, 10); if (!(i >= 0 && i < 3)) return;
+    t.guess = i; this._tlReveal(room);
+  }
+  _tlReveal(room) {
+    this._clearTimer(room);
+    const t = room.tl; if (!t || t.reveal) return;
+    const guesser = room.tlP.find(x => x !== t.teller);
+    const correct = t.guess === t.lieShuf;
+    if (correct) room.tlScores[guesser] += 1; else room.tlScores[t.teller] += 1;
+    t.reveal = { statements: t.shuffled, lieIndex: t.lieShuf, guess: t.guess, correct };
+    room.phase = 'tlReveal';
+    this.io.to(room.code).emit('twolies:reveal', t.reveal);
+    this.emitRoom(room);
+    this._setTimer(room, 8000, () => this._nextTwoLies(room));
+  }
+  _nextTwoLies(room) { this._clearTimer(room); if (room.tlRound >= room.tlTotal) return this._endTwoLies(room); this._beginTLRound(room); }
+  _endTwoLies(room) {
+    this._clearTimer(room); room.phase = 'tlOver';
+    const [a, b] = room.tlP; const w = room.tlScores[a] === room.tlScores[b] ? 'draw' : (room.tlScores[a] > room.tlScores[b] ? a : b);
+    room.tlResult = { scores: room.tlScores, winnerId: w, ids: [a, b] };
+    this.io.to(room.code).emit('twolies:over', room.tlResult);
+    this.emitRoom(room);
+  }
+
+  /* ============================ Association d'idées (le mot qui suit) ============================ */
+  _beginAssoc(room) {
+    const ids = room.players.filter(p => p.connected).map(p => p.id);
+    if (ids.length !== 2) { this._duelNeed2(room); return; }
+    room.assP = ids; room.assRound = 0; room.assTotal = 8; room.assMatches = 0;
+    const start = ASSOC_STARTERS[Math.floor(Math.random() * ASSOC_STARTERS.length)];
+    this._beginAssocRound(room, start);
+  }
+  _beginAssocRound(room, word) {
+    this._clearTimer(room);
+    room.assRound += 1;
+    room.assoc = { current: word, answers: {}, reveal: null, chain: room.assoc?.chain || [] };
+    room.phase = 'assPlay';
+    this.emitRoom(room);
+    this._setTimer(room, 7000, () => this._assReveal(room));
+  }
+  assAnswer(socket, word) {
+    const room = this._room(socket); const A = room?.assoc; if (!room || !A || room.phase !== 'assPlay') return;
+    const me = this._me(room, socket); if (!me || A.answers[me.id] != null) return;
+    A.answers[me.id] = sanitizeClue(word);
+    this.emitRoom(room);
+    if (room.assP.every(id => A.answers[id] != null)) this._assReveal(room);
+  }
+  _assReveal(room) {
+    this._clearTimer(room);
+    const A = room.assoc; if (!A || A.reveal) return;
+    const [a, b] = room.assP; const va = A.answers[a] || ''; const vb = A.answers[b] || '';
+    const match = !!va && norm(va) === norm(vb);
+    if (match) room.assMatches += 1;
+    A.reveal = { word: A.current, a: va, b: vb, match, names: { [a]: room.players.find(p => p.id === a)?.name, [b]: room.players.find(p => p.id === b)?.name } };
+    A.chain = [...(A.chain || []), { word: A.current, a: va, b: vb, match }];
+    room.phase = 'assReveal';
+    this.io.to(room.code).emit('assoc:reveal', A.reveal);
+    this.emitRoom(room);
+    this._setTimer(room, 4000, () => {
+      if (room.assRound >= room.assTotal) return this._endAssoc(room);
+      const next = match ? va : (va || vb || ASSOC_STARTERS[Math.floor(Math.random() * ASSOC_STARTERS.length)]);
+      this._beginAssocRound(room, next);
+    });
+  }
+  _endAssoc(room) {
+    this._clearTimer(room); room.phase = 'assOver';
+    const total = room.assRound || 0; const affinity = total ? Math.round((room.assMatches / total) * 100) : 0;
+    room.assResult = { matches: room.assMatches, total, affinity, chain: room.assoc?.chain || [] };
+    this.io.to(room.code).emit('assoc:over', room.assResult);
+    this.emitRoom(room);
+  }
+  _nextAssoc(room) {
+    if (room.phase !== 'assReveal') return; // l'enchaînement auto gère le reste
+    this._clearTimer(room);
+    if (room.assRound >= room.assTotal) return this._endAssoc(room);
+    const A = room.assoc; const va = A?.reveal?.a || ''; const vb = A?.reveal?.b || '';
+    const next = (A?.reveal?.match ? va : (va || vb)) || ASSOC_STARTERS[Math.floor(Math.random() * ASSOC_STARTERS.length)];
+    this._beginAssocRound(room, next);
+  }
+
+  /* ============================ Quiz "spécial nous" ============================ */
+  _beginNous(room) {
+    const ids = room.players.filter(p => p.connected).map(p => p.id);
+    if (ids.length !== 2) { this._duelNeed2(room); return; }
+    room.nqP = ids; room.nqRound = 0; room.nqTotal = 6; room.nqScores = { [ids[0]]: 0, [ids[1]]: 0 };
+    this._beginNousRound(room);
+  }
+  _beginNousRound(room) {
+    this._clearTimer(room);
+    room.nqRound += 1;
+    const asker = room.nqP[(room.nqRound - 1) % 2];
+    const prompt = NOUS_PROMPTS[Math.floor(Math.random() * NOUS_PROMPTS.length)];
+    room.nq = { asker, prompt, question: null, options: null, correctShuf: null, guess: null, reveal: null, scores: room.nqScores };
+    room.phase = 'nqWrite';
+    this.emitRoom(room);
+  }
+  nqWrite(socket, data) {
+    const room = this._room(socket); const N = room?.nq; if (!room || !N || room.phase !== 'nqWrite') return;
+    const me = this._me(room, socket); if (!me || me.id !== N.asker) return;
+    const q = sanitizeChat(data?.question) || N.prompt;
+    const opts = (Array.isArray(data?.options) ? data.options : []).map(x => sanitizeClue(x)).filter(Boolean).slice(0, 4);
+    const correct = parseInt(data?.correct, 10);
+    if (opts.length < 2 || !(correct >= 0 && correct < opts.length)) return;
+    const order = shuffle(opts.map((_, i) => i));
+    N.question = q; N.options = order.map(i => opts[i]); N.correctShuf = order.indexOf(correct);
+    room.phase = 'nqGuess';
+    this.emitRoom(room);
+    this._setTimer(room, 40000, () => { if (N.guess == null) { N.guess = Math.floor(Math.random() * N.options.length); this._nqReveal(room); } });
+  }
+  nqGuess(socket, index) {
+    const room = this._room(socket); const N = room?.nq; if (!room || !N || room.phase !== 'nqGuess') return;
+    const me = this._me(room, socket); if (!me || me.id === N.asker) return;
+    const i = parseInt(index, 10); if (!(i >= 0 && i < N.options.length)) return;
+    N.guess = i; this._nqReveal(room);
+  }
+  _nqReveal(room) {
+    this._clearTimer(room);
+    const N = room.nq; if (!N || N.reveal) return;
+    const guesser = room.nqP.find(x => x !== N.asker);
+    const correct = N.guess === N.correctShuf;
+    if (correct) room.nqScores[guesser] += 1;
+    N.reveal = { question: N.question, options: N.options, correct: N.correctShuf, guess: N.guess, ok: correct, askerName: room.players.find(p => p.id === N.asker)?.name };
+    room.phase = 'nqReveal';
+    this.io.to(room.code).emit('nousquiz:reveal', N.reveal);
+    this.emitRoom(room);
+    this._setTimer(room, 7000, () => this._nextNous(room));
+  }
+  _nextNous(room) { this._clearTimer(room); if (room.nqRound >= room.nqTotal) return this._endNous(room); this._beginNousRound(room); }
+  _endNous(room) {
+    this._clearTimer(room); room.phase = 'nqOver';
+    const [a, b] = room.nqP; const total = room.nqRound || 0;
+    const affinity = total ? Math.round(((room.nqScores[a] + room.nqScores[b]) / (total)) * 100) : 0;
+    room.nqResult = { scores: room.nqScores, ids: [a, b], affinity };
+    this.io.to(room.code).emit('nousquiz:over', room.nqResult);
+    this.emitRoom(room);
+  }
+
+  /* ============================ "Note ça" (sujets choisis par les joueurs) ============================ */
+  _beginRate(room) {
+    const ids = room.players.filter(p => p.connected).map(p => p.id);
+    if (ids.length !== 2) { this._duelNeed2(room); return; }
+    room.rateP = ids; room.rateRound = 0; room.rateTotal = 8; room.rateMatches = 0;
+    this._beginRateRound(room);
+  }
+  _beginRateRound(room) {
+    this._clearTimer(room);
+    room.rateRound += 1;
+    const proposer = room.rateP[(room.rateRound - 1) % 2];
+    const suggestion = RATE_SUBJECTS[Math.floor(Math.random() * RATE_SUBJECTS.length)];
+    room.rate = { proposer, subject: null, suggestion, notes: {}, reveal: null };
+    room.phase = 'rateWrite';
+    this.emitRoom(room);
+  }
+  rateSubject(socket, subject) {
+    const room = this._room(socket); const R = room?.rate; if (!room || !R || room.phase !== 'rateWrite') return;
+    const me = this._me(room, socket); if (!me || me.id !== R.proposer) return;
+    const subj = sanitizeChat(subject) || R.suggestion;
+    R.subject = subj; room.phase = 'rateScore';
+    this.emitRoom(room);
+    this._setTimer(room, 45000, () => this._rateReveal(room));
+  }
+  rateNote(socket, note) {
+    const room = this._room(socket); const R = room?.rate; if (!room || !R || room.phase !== 'rateScore') return;
+    const me = this._me(room, socket); if (!me || R.notes[me.id] != null) return;
+    const n = Math.max(0, Math.min(10, parseInt(note, 10)));
+    if (Number.isNaN(n)) return;
+    R.notes[me.id] = n;
+    this.emitRoom(room);
+    if (room.rateP.every(id => R.notes[id] != null)) this._rateReveal(room);
+  }
+  _rateReveal(room) {
+    this._clearTimer(room);
+    const R = room.rate; if (!R || R.reveal) return;
+    const [a, b] = room.rateP; const na = R.notes[a] ?? null; const nb = R.notes[b] ?? null;
+    const diff = (na != null && nb != null) ? Math.abs(na - nb) : 10;
+    if (diff <= 1) room.rateMatches += 1; // notes proches = accord
+    R.reveal = { subject: R.subject, notes: { [a]: na, [b]: nb }, diff, names: { [a]: room.players.find(p => p.id === a)?.name, [b]: room.players.find(p => p.id === b)?.name }, ids: [a, b] };
+    room.phase = 'rateReveal';
+    this.io.to(room.code).emit('rate:reveal', R.reveal);
+    this.emitRoom(room);
+    this._setTimer(room, 6000, () => this._nextRate(room));
+  }
+  _nextRate(room) { this._clearTimer(room); if (room.rateRound >= room.rateTotal) return this._endRate(room); this._beginRateRound(room); }
+  _endRate(room) {
+    this._clearTimer(room); room.phase = 'rateOver';
+    const total = room.rateRound || 0; const affinity = total ? Math.round((room.rateMatches / total) * 100) : 0;
+    room.rateResult = { matches: room.rateMatches, total, affinity };
+    this.io.to(room.code).emit('rate:over', room.rateResult);
+    this.emitRoom(room);
+  }
+
+  /* ============================ "Devine la note" (le site note, on fait deviner) ============================ */
+  _beginGuessNote(room) {
+    const ids = room.players.filter(p => p.connected).map(p => p.id);
+    if (ids.length !== 2) { this._duelNeed2(room); return; }
+    room.gnP = ids; room.gnRound = 0; room.gnTotal = 6; room.gnScores = { [ids[0]]: 0, [ids[1]]: 0 }; room.gnUsed = new Set();
+    this._beginGNRound(room);
+  }
+  _beginGNRound(room) {
+    this._clearTimer(room);
+    room.gnRound += 1;
+    const hinter = room.gnP[(room.gnRound - 1) % 2];
+    let idx = Math.floor(Math.random() * GUESS_RATINGS.length);
+    for (let i = 0; i < GUESS_RATINGS.length && room.gnUsed.has(idx); i++) idx = (idx + 1) % GUESS_RATINGS.length;
+    room.gnUsed.add(idx);
+    const item = GUESS_RATINGS[idx];
+    room.gn = { hinter, subject: item.subject, note: item.note, clues: [], guess: null, reveal: null, scores: room.gnScores };
+    room.phase = 'gnHint';
+    // note secrète envoyée uniquement au donneur d'indices
+    const hs = this._sockOf(room, hinter);
+    if (hs) this.io.to(hs).emit('gn:secret', { note: item.note, subject: item.subject });
+    this.emitRoom(room);
+  }
+  gnClue(socket, text) {
+    const room = this._room(socket); const G = room?.gn; if (!room || !G || room.phase !== 'gnHint') return;
+    const me = this._me(room, socket); if (!me || me.id !== G.hinter) return;
+    const clue = sanitizeClue(text); if (!clue) return;
+    // interdit d'écrire un chiffre (sinon c'est trop facile)
+    if (/\d/.test(clue)) { socket.emit('room:error', { message: 'Pas de chiffres dans les indices !' }); return; }
+    G.clues.push(clue);
+    this.emitRoom(room);
+    if (G.clues.length >= 3) { room.phase = 'gnGuess'; this.emitRoom(room); this._setTimer(room, 30000, () => { if (G.guess == null) { G.guess = 5; this._gnReveal(room); } }); }
+  }
+  gnReady(socket) { // le donneur passe à la devinette avant 3 indices
+    const room = this._room(socket); const G = room?.gn; if (!room || !G || room.phase !== 'gnHint') return;
+    const me = this._me(room, socket); if (!me || me.id !== G.hinter || G.clues.length === 0) return;
+    room.phase = 'gnGuess'; this.emitRoom(room);
+    this._setTimer(room, 30000, () => { if (G.guess == null) { G.guess = 5; this._gnReveal(room); } });
+  }
+  gnGuess(socket, note) {
+    const room = this._room(socket); const G = room?.gn; if (!room || !G || room.phase !== 'gnGuess') return;
+    const me = this._me(room, socket); if (!me || me.id === G.hinter) return;
+    const n = Math.max(0, Math.min(10, parseInt(note, 10))); if (Number.isNaN(n)) return;
+    G.guess = n; this._gnReveal(room);
+  }
+  _gnReveal(room) {
+    this._clearTimer(room);
+    const G = room.gn; if (!G || G.reveal) return;
+    const diff = Math.abs((G.guess ?? 5) - G.note);
+    const pts = diff === 0 ? 3 : diff === 1 ? 2 : diff === 2 ? 1 : 0; // proche = plus de points
+    const guesser = room.gnP.find(x => x !== G.hinter);
+    room.gnScores[guesser] += pts;
+    G.reveal = { subject: G.subject, note: G.note, guess: G.guess, diff, pts, clues: G.clues, guesserName: room.players.find(p => p.id === guesser)?.name };
+    room.phase = 'gnReveal';
+    this.io.to(room.code).emit('gn:reveal', G.reveal);
+    this.emitRoom(room);
+    this._setTimer(room, 8000, () => this._nextGuessNote(room));
+  }
+  _nextGuessNote(room) { this._clearTimer(room); if (room.gnRound >= room.gnTotal) return this._endGuessNote(room); this._beginGNRound(room); }
+  _endGuessNote(room) {
+    this._clearTimer(room); room.phase = 'gnOver';
+    const [a, b] = room.gnP; const w = room.gnScores[a] === room.gnScores[b] ? 'draw' : (room.gnScores[a] > room.gnScores[b] ? a : b);
+    room.gnResult = { scores: room.gnScores, winnerId: w, ids: [a, b] };
+    this.io.to(room.code).emit('gn:over', room.gnResult);
+    this.emitRoom(room);
+  }
+
+  /* ============================ "Balance tout" (questions libres, on répond) ============================ */
+  _beginAsk(room) {
+    const ids = room.players.filter(p => p.connected).map(p => p.id);
+    if (ids.length !== 2) { this._duelNeed2(room); return; }
+    room.askP = ids; room.askRound = 0; room.askTotal = 10; room.askHistory = [];
+    this._beginAskRound(room);
+  }
+  _beginAskRound(room) {
+    this._clearTimer(room);
+    room.askRound += 1;
+    const asker = room.askP[(room.askRound - 1) % 2];
+    const suggestion = ASK_SUGGEST[Math.floor(Math.random() * ASK_SUGGEST.length)];
+    room.ask = { asker, suggestion, question: null, history: room.askHistory };
+    room.phase = 'askWrite';
+    this.emitRoom(room);
+  }
+  askQuestion(socket, text) {
+    const room = this._room(socket); const A = room?.ask; if (!room || !A || room.phase !== 'askWrite') return;
+    const me = this._me(room, socket); if (!me || me.id !== A.asker) return;
+    const q = sanitizeChat(text) || A.suggestion;
+    A.question = q;
+    room.phase = 'askAnswer';
+    this.emitRoom(room);
+  }
+  askAnswer(socket, text) {
+    const room = this._room(socket); const A = room?.ask; if (!room || !A || room.phase !== 'askAnswer') return;
+    const me = this._me(room, socket); if (!me || me.id === A.asker) return; // seul le destinataire répond
+    const ans = sanitizeChat(text); if (!ans) return;
+    const askerName = room.players.find(p => p.id === A.asker)?.name;
+    const answererName = me.name;
+    room.askHistory = [...(room.askHistory || []), { question: A.question, answer: ans, askerName, answererName }];
+    A.history = room.askHistory;
+    this.io.to(room.code).emit('ask:answered', { question: A.question, answer: ans, askerName, answererName });
+    room.phase = 'askReveal';
+    this.emitRoom(room);
+    this._setTimer(room, 6000, () => this._nextAsk(room));
+  }
+  _nextAsk(room) { this._clearTimer(room); if (room.askRound >= room.askTotal) return this._endAsk(room); this._beginAskRound(room); }
+  _endAsk(room) {
+    this._clearTimer(room); room.phase = 'askOver';
+    room.askResult = { count: (room.askHistory || []).length, history: room.askHistory || [] };
+    this.io.to(room.code).emit('ask:over', room.askResult);
+    this.emitRoom(room);
+  }
+
   _duelNeed2(room) { const s = this.io.sockets.sockets.get(room.players.find(p => p.id === room.hostId)?.socketId); s?.emit('room:error', { message: 'Ce jeu se joue à 2 joueurs.' }); }
 
   /* ============================ CHAT ============================ */
   _chatAllowed(room) {
     if (room.gameType === 'draw') return true; // le chat sert aussi à deviner
     if (room.gameType === 'party' || room.gameType === 'bluff' || room.gameType === 'caption') return true; // social
-    if (DUEL_GAMES.has(room.gameType) || ['wyrduel','nbduel','wordduel','coupleduo'].includes(room.gameType)) return true; // 1v1 : chat libre
+    if (DUEL_GAMES.has(room.gameType) || ['wyrduel','nbduel','wordduel','coupleduo','bacduel','twolies','assoc','nousquiz','rateduo','guessnote','askduo'].includes(room.gameType)) return true; // 1v1 : chat libre
     // Imposteur : chat libre au lobby, en discussion et au résultat ; bloqué pendant reveal/indices/vote
     return ['lobby', 'discussion', 'result'].includes(room.phase);
   }
@@ -1107,7 +1574,7 @@ export class RoomManager {
     if (!this._chatAllowed(room)) return;
     // En Draw & Guess : une bonne réponse est interceptée (non diffusée pour ne pas divulguer le mot)
     if (room.gameType === 'draw' && this._handleDrawGuess(room, me, msg)) return;
-    this.io.to(room.code).emit('chat:msg', { playerId: me.id, name: me.name, avatar: me.avatar, text: msg, ts: now });
+    this.io.to(room.code).emit('chat:msg', { playerId: me.id, userId: socket.data?.userId || null, name: me.name, avatar: me.avatar, text: msg, ts: now });
   }
 
   /* ============================ CONNEXIONS ============================ */
@@ -1125,7 +1592,7 @@ export class RoomManager {
     if (me.id === room.hostId) { const next = room.players.find(p => p.connected && p.socketId !== socket.id); if (next) room.hostId = next.id; }
     if (room.players.length === 0 || room.players.every(p => !p.connected)) { this._clearTimer(room); this.rooms.delete(room.code); return; }
     this._clearActivity(socket);
-    if (['wyrduel','nbduel','wordduel','coupleduo'].includes(room.gameType) && room.phase !== 'lobby') { this._clearTimer(room); room.phase = 'lobby'; room.wyr = null; room.nb = null; room.word2 = null; room.couple = null; this.io.to(room.code).emit('game:toLobby'); this.emitRoom(room); return; }
+    if (['wyrduel','nbduel','wordduel','coupleduo','bacduel','twolies','assoc','nousquiz','rateduo','guessnote','askduo'].includes(room.gameType) && room.phase !== 'lobby') { this._clearTimer(room); room.phase = 'lobby'; room.wyr = null; room.nb = null; room.word2 = null; room.couple = null; room.bac = null; room.tl = null; room.assoc = null; room.nq = null; room.rate = null; room.gn = null; room.ask = null; room.ask = null; room.rate = null; room.gn = null; room.ask = null; room.tl = null; room.assoc = null; room.nq = null; room.rate = null; room.gn = null; room.ask = null; this.io.to(room.code).emit('game:toLobby'); this.emitRoom(room); return; }
     if (DUEL_GAMES.has(room.gameType) && room.duel && !room.duel.matchOver && (room.phase === 'duel' || room.phase === 'duelOver')) {
       const remaining = room.players.find(p => p.connected);
       if (remaining) { room.duel.matchOver = true; room.duel.winnerId = remaining.id; room.phase = 'duelOver'; this._clearTimer(room); this.io.to(room.code).emit('duel:over', { winnerId: remaining.id, forfeit: true }); this.emitRoom(room); return; }

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Send, MessageCircle, Lock } from 'lucide-react';
 import { Avatar } from './ui/index.jsx';
 import { useFriends } from '../context/FriendsContext.jsx';
@@ -13,6 +14,7 @@ export default function Chat({ socket, room, playerId, compact = false }) {
   const listRef = useRef(null);
   const friends = useFriends();
   const blockedIds = friends?.blockedIds || new Set();
+  const nav = useNavigate();
 
   useEffect(() => {
     const onMsg = (m) => setMessages(prev => [...prev.slice(-80), { ...m, kind: 'msg' }]);
@@ -38,7 +40,7 @@ export default function Chat({ socket, room, playerId, compact = false }) {
   };
 
   return (
-    <div className={`card rounded-2xl flex flex-col ${compact ? 'h-64' : 'h-80'}`}>
+    <div className={`card rounded-2xl flex flex-col ${compact ? 'h-64' : 'h-80 lg:h-[540px]'}`}>
       <div className="px-4 py-2.5 border-b border-border flex items-center gap-2 text-sm font-semibold">
         <MessageCircle className="h-4 w-4 text-brand" /> Chat
         {!allowed && <span className="ml-auto inline-flex items-center gap-1 text-xs text-muted"><Lock className="h-3 w-3" /> désactivé</span>}
@@ -51,8 +53,13 @@ export default function Chat({ socket, room, playerId, compact = false }) {
           if (m.kind === 'system') return <div key={m.id || i} className="text-xs text-muted italic px-1">{m.text}</div>;
           return (
             <div key={i} className="flex items-start gap-2 text-sm">
-              <Avatar name={m.avatar} label={m.name} size={22} />
-              <div className="min-w-0"><span className="font-semibold text-xs">{m.name}</span> <span className="text-text break-words">{m.text}</span></div>
+              {m.userId ? (
+                <button onClick={() => nav(`/u/${m.userId}`)} className="flex-none"><Avatar name={m.avatar} label={m.name} size={22} /></button>
+              ) : <Avatar name={m.avatar} label={m.name} size={22} />}
+              <div className="min-w-0">
+                {m.userId ? <button onClick={() => nav(`/u/${m.userId}`)} className="font-semibold text-xs hover:text-brand transition-colors">{m.name}</button> : <span className="font-semibold text-xs">{m.name}</span>}
+                {' '}<span className="text-text break-words">{m.text}</span>
+              </div>
             </div>
           );
         })}

@@ -132,3 +132,16 @@ body {
 .stagger > * { animation: slideUp .5s cubic-bezier(.16,1,.3,1) both; animation-delay: calc(var(--i, 0) * 55ms); }
 .hero-title { background: linear-gradient(100deg, rgb(var(--text)), rgb(var(--text)) 38%, rgb(var(--brand)) 58%, rgb(var(--text)) 72%); background-size: 200% auto; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shine 7s linear infinite; }
 .confetti { position: fixed; top: 0; width: 9px; height: 14px; border-radius: 2px; z-index: 90; animation: confettiFall linear forwards; }
+
+/* ============ MODE FÊTE ============ */
+@keyframes partyFlash { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes raySpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes popBig { 0% { transform: scale(0.4); opacity: 0; } 40% { transform: scale(1.15); opacity: 1; } 60% { transform: scale(0.96); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes floatUp { 0% { transform: translateY(20px); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(-120px); opacity: 0; } }
+.party-overlay { position: fixed; inset: 0; z-index: 90; pointer-events: none; display: flex; align-items: center; justify-content: center; }
+.party-glow { position: absolute; inset: 0; background: radial-gradient(closest-side, rgb(var(--brand) / 0.35), transparent 70%); animation: partyFlash 2.4s ease-out forwards; }
+.party-rays { position: absolute; width: 140vmax; height: 140vmax; border-radius: 50%; opacity: 0.18;
+  background: repeating-conic-gradient(from 0deg, rgb(var(--brand)) 0deg 8deg, transparent 8deg 20deg);
+  animation: raySpin 9s linear infinite, partyFlash 2.4s ease-out forwards; }
+.party-badge { animation: popBig 0.6s cubic-bezier(.16,1,.3,1) both; }
+@media (prefers-reduced-motion: reduce) { .party-rays { animation: none; } }

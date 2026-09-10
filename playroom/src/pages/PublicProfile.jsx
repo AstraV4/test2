@@ -77,6 +77,12 @@ export default function PublicProfile() {
               <p className="text-sm mt-0.5"><span className="text-brand font-semibold">{playerTitle(lv.level)}</span> <span className="text-muted">· @{u.username} · {u.xp} XP</span></p>
               {u.bio && <p className="text-sm text-muted mt-1 max-w-lg">{u.bio}</p>}
               {data.duo?.streak > 0 && <p className="text-sm text-warning font-semibold mt-1 inline-flex items-center gap-1"><Star className="h-4 w-4 fill-warning" /> {data.duo.streak} jour{data.duo.streak > 1 ? 's' : ''} de suite à jouer ensemble{data.duo.best > data.duo.streak ? ` (record : ${data.duo.best})` : ''}</p>}
+              {rel === 'friend' && data.friendsSince && (() => {
+                const days = Math.max(0, Math.floor((Date.now() - data.friendsSince) / 86400000));
+                const milestone = [365, 180, 100, 30, 7].find(m => days >= m);
+                const label = days === 0 ? "Amis depuis aujourd'hui 🎉" : `Amis depuis ${days} jour${days > 1 ? 's' : ''}`;
+                return <p className="text-sm text-rose-400 font-semibold mt-1 inline-flex items-center gap-1"><Heart className="h-4 w-4 fill-rose-400/40" /> {label}{milestone ? ` · ${milestone === 365 ? '1 an 🥳' : milestone === 180 ? '6 mois 🎊' : milestone + ' jours 🎉'}` : ''}</p>;
+              })()}
             </div>
             {user && (
               <div className="flex gap-2 pb-1">

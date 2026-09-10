@@ -11,14 +11,14 @@ import {
   setAvatar, addXp, levelFromXp, recordScore, bestScore, userStats,
   leaderboard, xpLeaderboard, listAchievements, grantAchievement,
   areFriends, addFriend, removeFriend, listFriendIds, listFriends,
-  sendRequest, acceptRequest, declineRequest, cancelRequest, listIncoming, listOutgoing, searchUsers,
+  sendRequest, acceptRequest, declineRequest, cancelRequest, listIncoming, listOutgoing, searchUsers, friendsSince,
   blockUser, unblockUser, isBlocked, blockedBetween, listBlocked, listBlockedIds, addReport,
   seasonInfo, addSeasonXp, seasonXpOf, seasonLeaderboard,
   sendDm, dmThread, markDmRead, unreadCounts, unreadTotal, updateProfile,
   setFavorite, listFavoriteIds, duoStreak,
   setCrush, isMutualCrush, crushState,
   setNickname, nicknamesOf, nicknameOf, touchLastSeen, lastSeenOf, deleteDm, lastReadOfThread,
-  setGameFavorite, listGameFavorites,
+  setGameFavorite, listGameFavorites, reactDm, reactionsForThread,
 } from './db.js';
 import { COOKIE, setAuthCookie, clearAuthCookie, userIdFromReq, requireAuth, verifyToken } from './auth.js';
 import { RoomManager } from './rooms.js';
@@ -322,8 +322,9 @@ app.get('/api/users/:id/profile', (req, res) => {
     else if (listOutgoing(viewer).some(x => x.id === id)) relation = 'sent';
     else if (listIncoming(viewer).some(x => x.id === id)) relation = 'incoming';
   } else if (viewer === id) relation = 'self';
-  let duo = null; if (viewer && viewer !== id) duo = duoStreak(viewer, id);
-  res.json({ user: publicUser(u), stats, achievements, relation, online: presence.isOnline(id), duo });
+  let duo = null; let since = null;
+  if (viewer && viewer !== id) { duo = duoStreak(viewer, id); if (relation === 'friend') since = friendsSince(viewer, id); }
+  res.json({ user: publicUser(u), stats, achievements, relation, online: presence.isOnline(id), duo, friendsSince: since });
 });
 
 app.get('/api/duo/:id/streak', requireAuth, (req, res) => {
@@ -358,7 +359,9 @@ app.get('/api/dm/:userId', requireAuth, (req, res) => {
   if (!areFriends(req.userId, other)) return res.status(403).json({ error: 'not_friends' });
   const changed = markDmRead(req.userId, other);
   if (changed > 0) presence.emitToUser(other, 'dm:read', { by: req.userId, at: Date.now() }); // l'autre voit "Vu"
-  res.json({ messages: dmThread(req.userId, other, 60), other: publicUser(findUserById(other)), lastRead: lastReadOfThread(req.userId, other) });
+  const messages = dmThread(req.userId, other, 60);
+  const reactions = reactionsForThread(messages.map(m => m.id));
+  res.json({ messages, reactions, other: publicUser(findUserById(other)), lastRead: lastReadOfThread(req.userId, other) });
 });
 app.post('/api/dm/:userId', requireAuth, rateLimit(120, 60000), (req, res) => {
   const other = parseInt(req.params.userId, 10);
@@ -376,6 +379,14 @@ app.post('/api/dm/:userId/delete', requireAuth, (req, res) => {
   if (!deleteDm(req.userId, msgId)) return res.status(403).json({ error: 'cannot_delete' });
   presence.emitToUser(other, 'dm:deleted', { messageId: msgId });
   res.json({ ok: true });
+});
+app.post('/api/dm/:userId/react', requireAuth, (req, res) => {
+  const msgId = parseInt(req.body?.messageId, 10);
+  const emoji = String(req.body?.emoji || '');
+  const r = reactDm(req.userId, msgId, emoji);
+  if (!r) return res.status(400).json({ error: 'bad_request' });
+  presence.emitToUser(r.other, 'dm:react', { messageId: msgId, reactions: r.reactions });
+  res.json({ reactions: r.reactions });
 });
 
 /* ============================ MODÉRATION ============================ */
@@ -473,6 +484,25 @@ io.on('connection', (socket) => {
   socket.on('word:secret', (d) => rooms.wordSetSecret(socket, d?.value));
   socket.on('word:letter', (d) => rooms.wordLetter(socket, d?.letter));
   socket.on('couple:answer', (d) => rooms.coupleAnswer(socket, d?.choice));
+  socket.on('bac:submit', (d) => rooms.bacSubmit(socket, d?.answers));
+  socket.on('twolies:write', (d) => rooms.tlWrite(socket, d || {}));
+  socket.on('twolies:guess', (d) => rooms.tlGuess(socket, d?.index));
+  socket.on('assoc:answer', (d) => rooms.assAnswer(socket, d?.word));
+  socket.on('nousquiz:write', (d) => rooms.nqWrite(socket, d || {}));
+  socket.on('nousquiz:guess', (d) => rooms.nqGuess(socket, d?.index));
+  socket.on('rate:subject', (d) => rooms.rateSubject(socket, d?.subject));
+  socket.on('rate:note', (d) => rooms.rateNote(socket, d?.note));
+  socket.on('gn:clue', (d) => rooms.gnClue(socket, d?.text));
+  socket.on('gn:ready', () => rooms.gnReady(socket));
+  socket.on('gn:guess', (d) => rooms.gnGuess(socket, d?.note));
+  socket.on('ask:question', (d) => rooms.askQuestion(socket, d?.text));
+  socket.on('ask:answer', (d) => rooms.askAnswer(socket, d?.text));
+  // Indicateur "écrit…" en messagerie (relayé à l'ami)
+  socket.on('dm:typing', (d) => {
+    const fromId = socket.data.userId; const toId = parseInt(d?.toUserId, 10);
+    if (!fromId || !toId || !areFriends(fromId, toId)) return;
+    presence.emitToUser(toId, 'dm:typing', { from: fromId, on: !!d?.on });
+  });
 
   // Invitation directe dans son salon
   socket.on('invite:send', (d) => {
