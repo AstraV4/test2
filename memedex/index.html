@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>MèmeDex</title>
+<meta name="description" content="Collectionne les vrais mèmes et personnalités de la culture internet française : ouvre des boosters, complète ta collection, raretés holographiques." />
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<script>
+  tailwind.config = { theme: { extend: {
+    fontFamily: { sans: ['Outfit','ui-sans-serif','system-ui','sans-serif'] },
+    colors: { ink:'#07070d', panel:'#12121c', panel2:'#1a1a28', line:'#262636', brand:'#8b5cf6', brand2:'#ec4899', muted:'#8e8ea8' },
+  } } };
+</script>
+<style>
+  :root{ --ink:#07070d;
+    --commun:#9aa3b2; --rare:#3b82f6; --epique:#a855f7; --legendaire:#f5a524; --mythique:#ec4899; }
+  *{ -webkit-tap-highlight-color:transparent; }
+  html,body{ background:var(--ink); }
+  body{ color:#ececf6; padding-bottom:76px;
+    background-image: radial-gradient(900px 520px at 10% -8%, rgba(139,92,246,.20), transparent 60%),
+                      radial-gradient(900px 520px at 100% 0%, rgba(236,72,153,.15), transparent 55%);
+    background-attachment:fixed; }
+  ::-webkit-scrollbar{ width:9px; height:9px; } ::-webkit-scrollbar-thumb{ background:#262636; border-radius:9px; }
+  .btn-grad{ background:linear-gradient(135deg,#8b5cf6,#ec4899); }
+  .btn-grad:disabled{ filter:grayscale(.55) brightness(.7); }
+
+  /* ---------------- CARTE FULL-ART ---------------- */
+  .fc{ position:relative; aspect-ratio:5/7; border-radius:18px; overflow:hidden; isolation:isolate;
+    border:2.5px solid var(--rc,#2a2a3a); background:#0c0c14; box-shadow:0 10px 30px -12px rgba(0,0,0,.8); }
+  .fc-img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; }
+  .fc-fallback{ position:absolute; inset:0; z-index:0; display:grid; place-items:center;
+    background:radial-gradient(120% 90% at 50% 10%, color-mix(in srgb,var(--rc,#333) 45%,#10101a), #0a0a12 75%); }
+  .fc::after{ /* voiles haut + bas pour lisibilité */
+    content:""; position:absolute; inset:0; z-index:1; pointer-events:none;
+    background:linear-gradient(to bottom, rgba(5,5,10,.82) 0%, rgba(5,5,10,.12) 26%, rgba(5,5,10,0) 42%, rgba(5,5,10,.15) 58%, rgba(5,5,10,.9) 100%); }
+  .fc-c{ position:absolute; inset:0; z-index:2; display:flex; flex-direction:column; padding:8px 9px; }
+  .fc-rar{ display:flex; align-items:center; justify-content:center; gap:5px; font-size:9px; letter-spacing:.14em; font-weight:800; text-transform:uppercase; color:#fff; opacity:.95; }
+  .fc-rar .stars{ color:var(--rc); letter-spacing:0; }
+  .fc-title{ text-align:center; font-weight:900; line-height:1.02; margin-top:2px;
+    text-shadow:0 2px 10px rgba(0,0,0,.9),0 0 2px rgba(0,0,0,.8); }
+  .fc-spacer{ flex:1; }
+  .fc-meta{ text-align:center; font-size:8.5px; letter-spacing:.04em; color:#dfe0 ; color:#e7e7f0; opacity:.85; margin-bottom:4px; text-shadow:0 1px 4px #000; }
+  .fc-desc{ background:rgba(8,8,14,.72); border:1px solid rgba(255,255,255,.08); border-radius:9px; padding:6px 7px;
+    font-size:9.5px; line-height:1.25; color:#e9e9f3; backdrop-filter:blur(2px); }
+  .fc-foot{ display:flex; justify-content:space-between; font-size:7px; letter-spacing:.03em; color:#b9b9c9; opacity:.75; margin-top:4px; text-shadow:0 1px 3px #000; }
+
+  /* cadres par rareté */
+  .r-commun{ --rc:#9aa3b2; }
+  .r-rare{ --rc:#3b82f6; box-shadow:0 0 0 1px rgba(59,130,246,.4),0 12px 34px -14px rgba(59,130,246,.7); }
+  .r-epique{ --rc:#a855f7; box-shadow:0 0 0 1px rgba(168,85,247,.45),0 14px 40px -14px rgba(168,85,247,.85); }
+  .r-legendaire{ --rc:#f5a524; box-shadow:0 0 0 1px rgba(245,165,36,.5),0 16px 46px -14px rgba(245,165,36,.9); }
+  .r-mythique{ --rc:#ec4899; border-color:transparent; box-shadow:0 16px 50px -14px rgba(236,72,153,.95); }
+  /* foil animé légendaire/mythique */
+  .r-legendaire::before, .r-mythique::before{ content:""; position:absolute; inset:0; z-index:3; pointer-events:none; border-radius:16px;
+    background:linear-gradient(130deg,transparent 35%, rgba(255,255,255,.28) 48%, transparent 62%); background-size:250% 250%; animation:sheen 3.4s ease-in-out infinite; mix-blend-mode:overlay; }
+  .r-mythique{ background:conic-gradient(from 0deg,#ec4899,#8b5cf6,#22d3ee,#34d399,#f5a524,#ec4899); padding:2.5px; }
+  .r-mythique > .fc-inner{ position:absolute; inset:2.5px; border-radius:15px; overflow:hidden; }
+  @keyframes sheen{ 0%{background-position:150% 0} 100%{background-position:-150% 0} }
+  /* shiny : pluie d'étincelles */
+  .shiny::after{ background:linear-gradient(to bottom, rgba(5,5,10,.82),rgba(5,5,10,.1) 26%,transparent 42%,rgba(5,5,10,.15) 58%,rgba(5,5,10,.9)),
+      repeating-linear-gradient(115deg, transparent 0 7px, rgba(255,255,255,.10) 7px 8px); }
+  .shiny .fc-title::after{ content:" ✨"; }
+
+  .locked .fc-img, .locked .fc-fallback{ filter:grayscale(1) brightness(.25); }
+  .locked .fc-title, .locked .fc-desc, .locked .fc-meta{ filter:blur(5px); opacity:.45; }
+
+  .tap{ transition:transform .15s; } .tap:active{ transform:scale(.96); }
+  .fade{ animation:fade .3s ease both; } @keyframes fade{ from{opacity:0;transform:translateY(8px)} to{opacity:1} }
+  .pop{ animation:pop .5s cubic-bezier(.2,1.3,.4,1) both; } @keyframes pop{ from{opacity:0;transform:scale(.6)} to{opacity:1;transform:scale(1)} }
+  .confetti{ position:fixed; top:-12px; width:9px; height:14px; z-index:90; border-radius:2px; pointer-events:none; animation:fall linear forwards; }
+  @keyframes fall{ to{ transform:translateY(110vh) rotate(720deg); opacity:.2; } }
+  /* rayons de lumière derrière carte rare */
+  .rays{ position:absolute; inset:-30%; z-index:-1; background:conic-gradient(from 0deg, transparent 0 8deg, rgba(255,255,255,.14) 8deg 16deg, transparent 16deg 24deg); animation:spin 9s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .tabbtn.active{ color:#fff; } .tabbtn.active .ic{ background:linear-gradient(135deg,#8b5cf6,#ec4899); color:#fff; }
+</style>
+</head>
+<body class="font-sans min-h-screen">
+
+<!-- ===== HEADER ===== -->
+<header class="sticky top-0 z-40 backdrop-blur-xl bg-[#07070d]/85 border-b border-line">
+  <div class="max-w-5xl mx-auto px-4 h-14 flex items-center gap-3">
+    <div class="flex items-center gap-2">
+      <div class="h-8 w-8 rounded-lg btn-grad grid place-items-center text-base shadow-lg shadow-brand/30">🃏</div>
+      <div class="font-extrabold tracking-tight leading-none text-[17px]">Mème<span class="text-brand2">Dex</span></div>
+    </div>
+    <div class="ml-auto flex items-center gap-2 text-sm">
+      <div class="flex items-center gap-1.5 rounded-full bg-panel border border-line px-3 py-1.5" title="Boosters gratuits">
+        <span>🎁</span><b id="freeCount" class="tabular-nums">0</b>
+        <span class="text-muted text-xs">·<span id="freeTimer" class="ml-1">--:--</span></span>
+      </div>
+      <div class="flex items-center gap-1.5 rounded-full bg-panel border border-line px-3 py-1.5" title="Pièces">
+        <span>🪙</span><b id="coins" class="tabular-nums text-yellow-300">0</b>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-5xl mx-auto px-4 py-5">
+
+  <!-- ================= PACKS ================= -->
+  <section id="tab-packs">
+    <!-- HERO -->
+    <div class="relative overflow-hidden rounded-3xl border border-line bg-gradient-to-br from-brand/20 via-panel to-brand2/20 p-5 mb-5">
+      <div class="relative z-10">
+        <h1 class="font-extrabold text-2xl leading-tight">Collectionne la<br>culture internet FR 🇫🇷</h1>
+        <p class="text-sm text-muted mt-1.5">Des vrais mèmes et des légendes françaises. Ouvre des boosters, complète ta collection.</p>
+        <div class="flex gap-2 mt-3 text-[11px] text-muted">
+          <span class="rounded-full bg-black/30 border border-line px-2.5 py-1"><b id="heroTotal" class="text-white">0</b> cartes</span>
+          <span class="rounded-full bg-black/30 border border-line px-2.5 py-1">6 raretés</span>
+          <span class="rounded-full bg-black/30 border border-line px-2.5 py-1">Série 1</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- booster gratuit -->
+    <div class="rounded-2xl border border-line bg-gradient-to-br from-brand/15 to-brand2/15 p-[1px] mb-5">
+      <div class="rounded-2xl bg-panel/90 p-4 flex items-center gap-4 flex-wrap">
+        <div class="text-4xl">🎁</div>
+        <div class="flex-1 min-w-[160px]">
+          <div class="font-extrabold text-lg">Boosters gratuits</div>
+          <div class="text-xs text-muted">10 par jour · +1 toutes les 10 min — réserve : <b id="freeCount2" class="text-white">0</b></div>
+          <div class="text-xs text-muted">Prochain dans <b id="freeTimer2" class="text-brand2">--:--</b></div>
+        </div>
+        <button id="openFree" class="btn-grad rounded-xl px-5 py-3 font-extrabold shadow-lg shadow-brand/30 tap">Ouvrir</button>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-extrabold text-lg">Boosters premium</h2>
+      <button id="convertBtn" class="rounded-xl px-3 py-2 text-xs font-bold border border-line bg-panel2 tap">♻️ Doublons</button>
+    </div>
+    <div id="packs" class="grid sm:grid-cols-3 gap-3"></div>
+  </section>
+
+  <!-- ================= COLLECTION ================= -->
+  <section id="tab-deck" class="hidden">
+    <div class="flex items-end justify-between gap-3 mb-3">
+      <div>
+        <h2 class="font-extrabold text-xl">Ma collection</h2>
+        <p class="text-sm text-muted"><span id="compNum" class="font-bold text-white">0</span>/<span id="compTot">0</span> cartes · <span id="compPct">0</span>%</p>
+      </div>
+    </div>
+    <div class="h-2.5 rounded-full bg-panel2 overflow-hidden border border-line mb-4"><div id="compBar" class="h-full btn-grad transition-all duration-500" style="width:0%"></div></div>
+    <div id="filters" class="flex flex-wrap gap-2 mb-4"></div>
+    <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"></div>
+  </section>
+
+  <!-- ================= INFOS ================= -->
+  <section id="tab-info" class="hidden space-y-6">
+    <div>
+      <h2 class="font-extrabold text-2xl leading-tight">La rareté suit<br>la célébrité</h2>
+      <p class="text-sm text-muted mt-1.5">Plus une réf est culte et répandue, plus sa carte est dure à sortir.</p>
+    </div>
+    <div id="rarityLadder" class="rounded-2xl border border-line bg-panel p-4 space-y-3"></div>
+    <div>
+      <h2 class="font-extrabold text-2xl mb-3">Comment ça marche</h2>
+      <div class="space-y-3">
+        <div class="rounded-2xl border border-line bg-panel p-4 flex gap-3"><div class="h-8 w-8 flex-none rounded-full bg-yellow-400 text-black grid place-items-center font-extrabold">1</div><div><div class="font-bold">Ouvre des boosters</div><div class="text-sm text-muted">Un booster gratuit toutes les 10 min, 10 par jour. Chaque booster = 3 cartes.</div></div></div>
+        <div class="rounded-2xl border border-line bg-panel p-4 flex gap-3"><div class="h-8 w-8 flex-none rounded-full bg-brand text-white grid place-items-center font-extrabold">2</div><div><div class="font-bold">Complète ta collection</div><div class="text-sm text-muted">Chaque carte a un numéro. Choppe-les toutes et vise le 100%.</div></div></div>
+        <div class="rounded-2xl border border-line bg-panel p-4 flex gap-3"><div class="h-8 w-8 flex-none rounded-full bg-brand2 text-white grid place-items-center font-extrabold">3</div><div><div class="font-bold">Convertis tes doublons</div><div class="text-sm text-muted">Les doubles se transforment en pièces 🪙 pour acheter des boosters premium.</div></div></div>
+      </div>
+    </div>
+    <p class="text-xs text-muted text-center">MèmeDex · fan-game non officiel · photos via Wikimedia Commons · progression sauvegardée dans ce navigateur.</p>
+  </section>
+</main>
+
+<!-- ===== NAV BAS ===== -->
+<nav class="fixed bottom-0 inset-x-0 z-40 bg-[#07070d]/92 backdrop-blur-xl border-t border-line">
+  <div class="max-w-5xl mx-auto px-6 h-[64px] grid grid-cols-3">
+    <button data-tab="packs" class="tabbtn flex flex-col items-center justify-center gap-0.5 text-muted"><span class="ic h-7 w-7 grid place-items-center rounded-lg text-base">🎁</span><span class="text-[10px] font-bold">Boosters</span></button>
+    <button data-tab="deck" class="tabbtn flex flex-col items-center justify-center gap-0.5 text-muted"><span class="ic h-7 w-7 grid place-items-center rounded-lg text-base">📔</span><span class="text-[10px] font-bold">Collection</span></button>
+    <button data-tab="info" class="tabbtn flex flex-col items-center justify-center gap-0.5 text-muted"><span class="ic h-7 w-7 grid place-items-center rounded-lg text-base">ℹ️</span><span class="text-[10px] font-bold">Infos</span></button>
+  </div>
+</nav>
+
+<!-- ===== MODALE DÉTAIL ===== -->
+<div id="modal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm grid place-items-center p-6">
+  <div class="w-full max-w-[300px] fade"><div id="modalCard"></div>
+    <button id="closeModal" class="mt-3 w-full rounded-xl py-2.5 font-bold border border-line bg-panel2 tap">Fermer</button></div>
+</div>
+
+<!-- ===== OUVERTURE BOOSTER (carrousel) ===== -->
+<div id="opener" class="hidden fixed inset-0 z-50 bg-[#05050a] flex flex-col">
+  <div class="px-4 h-14 flex items-center justify-between border-b border-line/50">
+    <div class="font-extrabold">Mème<span class="text-brand2">Dex</span></div>
+    <div id="openProg" class="text-sm font-bold text-muted">1/3</div>
+  </div>
+  <div class="px-4 pt-3 flex items-center justify-center">
+    <div id="openCounter" class="rounded-full bg-yellow-400/90 text-black font-extrabold text-sm px-4 py-1.5">Encore 2 cartes →</div>
+  </div>
+  <div class="flex-1 relative overflow-hidden grid place-items-center px-6">
+    <div id="raysWrap" class="absolute inset-0 grid place-items-center opacity-0 transition-opacity duration-300"><div class="rays w-[140vw] h-[140vw] max-w-[640px] max-h-[640px]"></div></div>
+    <div id="openStage" class="relative w-full max-w-[290px]"></div>
+  </div>
+  <div class="px-4 pb-3 flex items-center justify-center gap-2">
+    <button id="opPrev" class="h-10 w-10 rounded-full border border-line bg-panel2 tap">‹</button>
+    <div id="opDots" class="flex items-center gap-1.5"></div>
+    <button id="opNext" class="h-10 w-10 rounded-full border border-line bg-panel2 tap">›</button>
+  </div>
+  <div class="p-4">
+    <button id="openMain" class="w-full btn-grad rounded-2xl py-3.5 font-extrabold text-lg shadow-xl shadow-brand/30 tap">Suivant</button>
+  </div>
+</div>
+
+<script>
+/* ======================= RARETÉS ======================= */
+const RAR = {
+  commun:     { label:'Commune',    cls:'r-commun',     color:'#9aa3b2', stars:1, value:8,   rate:'56 %' },
+  rare:       { label:'Rare',       cls:'r-rare',       color:'#3b82f6', stars:2, value:22,  rate:'29 %' },
+  epique:     { label:'Épique',     cls:'r-epique',     color:'#a855f7', stars:3, value:55,  rate:'11 %' },
+  legendaire: { label:'Légendaire', cls:'r-legendaire', color:'#f5a524', stars:4, value:150, rate:'3,5 %' },
+  mythique:   { label:'Mythique',   cls:'r-mythique',   color:'#ec4899', stars:5, value:400, rate:'0,5 %' },
+};
+const SHINY_RATE = 0.02;
+
+/* ======================= CARTES ======================= */
+// file = photo Wikimedia (vérifiée) ; sinon emoji stylisé. img = URL perso éventuelle.
+const CARDS = [
+  // MYTHIQUES
+  { id:'jul', name:'Jul', rarity:'mythique', cat:'Rap FR', year:2015, emoji:'🎵', file:'JUL - Julien Mari 2018.jpg', desc:"Le « S » tagué sur la moitié des murs de France. Alors tu fais quoi ? Tu kiffes." },
+  { id:'zidane', name:'Zinédine Zidane', rarity:'mythique', cat:'Sport', year:2006, emoji:'🐐', file:'Zinedine Zidane by Tasnim 03.jpg', desc:"Le coup de boule le plus célèbre de l'histoire du foot. Finale 2006, 110ᵉ minute." },
+  { id:'risitas', name:'El Risitas', rarity:'mythique', cat:'Mème', year:2015, emoji:'🤣', file:'Risitas (headshot).jpg', desc:"Le rire le plus contagieux d'internet. Une histoire de paellas devenue légende." },
+  { id:'mbappe', name:'Kylian Mbappé', rarity:'mythique', cat:'Sport', year:2018, emoji:'🚀', file:'Kylian Mbappé France.jpg', desc:"La fusée de Bondy, champion du monde à 19 ans. Les bras croisés, la célébration copiée partout." },
+  { id:'defunes', name:'Louis de Funès', rarity:'mythique', cat:'Cinéma', year:1965, emoji:'🎬', file:"Louis de Funès — L'Homme orchestre (1970) (recadré).jpg", desc:"Le roi de la comédie française. Grimaces et colères cultes depuis 60 ans." },
+  { id:'rickroll', name:'Rickroll', rarity:'mythique', cat:'Mème', year:2007, emoji:'🎶', file:'Rick Astley Tivoli Gardens.jpg', desc:"Never gonna give you up. Tu as cliqué. Tu t'es fait avoir. Le piège le plus vieux du web." },
+
+  // LÉGENDAIRES
+  { id:'booba', name:'Booba', rarity:'legendaire', cat:'Rap FR', year:2002, emoji:'🦉', file:'Booba.jpg', desc:"Le Duc de Boulbi. Patron de l'ombre… et spécialiste du clash à 3 h du mat en story." },
+  { id:'squeezie', name:'Squeezie', rarity:'legendaire', cat:'Streaming', year:2011, emoji:'🎮', file:'Squeezie Zack en Roue Libre 2025 (cropped).png', desc:"Le patron du YouTube game FR. Le GP Explorer a rempli un vrai circuit de course." },
+  { id:'inoxtag', name:'Inoxtag', rarity:'legendaire', cat:'Streaming', year:2020, emoji:'🏔️', file:'Inoxtag-2023.jpg', desc:"De gamer dans sa chambre au sommet de l'Everest. Kaizen. Objectif débloqué." },
+  { id:'mrbeast', name:'MrBeast', rarity:'legendaire', cat:'Streaming', year:2018, emoji:'💰', file:'MrBeast 2023.jpg', desc:"« Le dernier à lâcher gagne 100 000 $. » Le roi du YouTube mondial." },
+  { id:'ronaldo', name:'Cristiano Ronaldo', rarity:'legendaire', cat:'Sport', year:2003, emoji:'🇵🇹', file:'Cristiano Ronaldo WC2022 - 01 (cropped).jpg', desc:"« SIUUU ! » Le cri et le saut copiés par la planète entière." },
+  { id:'messi', name:'Lionel Messi', rarity:'legendaire', cat:'Sport', year:2022, emoji:'🐐', file:'Lionel-Messi-Argentina-2022-FIFA-World-Cup (cropped).jpg', desc:"La Pulga. Champion du monde 2022, le GOAT selon beaucoup." },
+  { id:'keanu', name:'Keanu Reeves', rarity:'legendaire', cat:'Mème', year:2019, emoji:'🕶️', file:'Keanu Reeves 2019 (cropped).jpg', desc:"« You're breathtaking! » L'homme le plus gentil d'Hollywood." },
+  { id:'henry', name:'Thierry Henry', rarity:'legendaire', cat:'Sport', year:1998, emoji:'⚽', file:'Thierry Henry (51649035951) (cropped).jpg', desc:"Titi Parisien, recordman de buts des Bleus. « Va-va-voom »." },
+  { id:'omarsy', name:'Omar Sy', rarity:'legendaire', cat:'Cinéma', year:2011, emoji:'🎭', file:'Omar Sy (2020).jpg', desc:"« Qui c'est le plus beau ? » D'Intouchables à Lupin, la classe à la française." },
+  { id:'doge', name:'Doge', rarity:'legendaire', cat:'Mème', year:2013, emoji:'🐕', file:'Doge homemade meme.jpg', desc:"Such wow. Very collection. Much rare. Un Shiba nommé Kabosu." },
+
+  // ÉPIQUES
+  { id:'kaaris', name:'Kaaris', rarity:'epique', cat:'Rap FR', year:2013, emoji:'🔫', file:'Out4Fame-Festival 2016 - Kaaris.JPG', desc:"« Sale ! » L'autre moitié du clash le plus suivi du rap FR." },
+  { id:'gims', name:'GIMS', rarity:'epique', cat:'Rap FR', year:2013, emoji:'🕶️', file:'Maitre Gims.jpg', desc:"Garde ses lunettes de soleil. Toujours. Partout. La nuit aussi." },
+  { id:'orelsan', name:'Orelsan', rarity:'epique', cat:'Rap FR', year:2011, emoji:'🎙️', file:"Portrait Photographique d'Orelsan.jpg", desc:"« Basique. Simple. » Le storyteller du rap français." },
+  { id:'michou', name:'Michou', rarity:'epique', cat:'Streaming', year:2019, emoji:'💙', file:'Michou 2023.jpg', desc:"Le crew, la mèche bleue, l'énergie. La moitié des collèges a dansé sur ses clips." },
+  { id:'benzema', name:'Karim Benzema', rarity:'epique', cat:'Sport', year:2022, emoji:'🐈', file:'Karim Benzema wearing Real Madrid home kit 2021-2022 (cropped).jpg', desc:"Ballon d'Or 2022. Le chat, le renard des surfaces." },
+  { id:'speed', name:'IShowSpeed', rarity:'epique', cat:'Streaming', year:2022, emoji:'🔥', file:'IShowSpeed at Chinatown (Portrait) 03 (cropped).jpg', desc:"Le streamer le plus imprévisible de la planète. Fan n°1 de Ronaldo. SUIII." },
+  { id:'pogba', name:'Paul Pogba', rarity:'epique', cat:'Sport', year:2018, emoji:'🕺', file:'Paul Pogba 2017-03-09.jpg', desc:"La Pioche. Champion du monde, dab légendaire et coupes changeantes." },
+  { id:'griezmann', name:'Antoine Griezmann', rarity:'epique', cat:'Sport', year:2018, emoji:'🎯', file:'Antoine Griezmann (cropped).jpg', desc:"La Petite Gonzesse devenue champion du monde. Danse Fortnite incluse." },
+  { id:'jamel', name:'Jamel Debbouze', rarity:'epique', cat:'Humour', year:2000, emoji:'🎤', file:'Jamel Debbouze AVP 2016.jpg', desc:"Le H, le Jamel Comedy Club… l'humoriste qui a lancé toute une génération." },
+  { id:'stromae', name:'Stromae', rarity:'epique', cat:'Musique', year:2010, emoji:'🎹', file:'Stromae.jpg', desc:"« Alors on danse. » Le phénomène belge qui a conquis la planète." },
+  { id:'aya', name:'Aya Nakamura', rarity:'epique', cat:'Musique', year:2018, emoji:'💃', file:'Aya Nakamura IMG 4756 (cropped).jpg', desc:"« Djadja. » La chanteuse FR la plus streamée au monde. Catchana baby." },
+  { id:'giroud', name:'Olivier Giroud', rarity:'epique', cat:'Sport', year:2018, emoji:'🎩', file:'Olivier Giroud (51100321546) (cropped).jpg', desc:"Meilleur buteur de l'histoire des Bleus. La tête, toujours la tête." },
+  { id:'naruto', name:'Naruto', rarity:'epique', cat:'Anime', year:2002, emoji:'🍥', desc:"Bras en arrière, buste en avant : le fameux « Naruto run ». Icône de récré." },
+  { id:'onepiece', name:'One Piece', rarity:'epique', cat:'Anime', year:1999, emoji:'🏴‍☠️', desc:"Le trésor le plus recherché de l'univers des animés. Commencé en 1997, toujours pas fini." },
+  { id:'dbz', name:'Dragon Ball', rarity:'epique', cat:'Anime', year:1990, emoji:'⚡', desc:"KA-MÉ-HA-MÉ-HAAA. Le Club Do dans le sang. Mimé dans toutes les cours." },
+  { id:'gigachad', name:'GigaChad', rarity:'epique', cat:'Brainrot', year:2017, emoji:'🗿', desc:"La mâchoire taillée dans le marbre. L'homme alpha ultime." },
+
+  // RARES
+  { id:'saltbae', name:'Salt Bae', rarity:'rare', cat:'Mème', year:2017, emoji:'🧂', file:'Salt Bae.png', desc:"Le geste du sel le plus stylé (et le plus cher) du monde. Le coude, surtout le coude." },
+  { id:'grumpy', name:'Grumpy Cat', rarity:'rare', cat:'Mème', year:2012, emoji:'😾', file:'Grumpy Cat (cropped close).jpg', desc:"« I had fun once. It was awful. » Le chat le plus ronchon du web." },
+  { id:'pnl', name:'PNL', rarity:'rare', cat:'Rap FR', year:2015, emoji:'🖤', file:'PNL live Deux frères tour.jpg', desc:"« QLF. » Les deux frères qui parlent peu mais remplissent les stades." },
+  { id:'nabilla', name:'Nabilla', rarity:'rare', cat:'Culture FR', year:2013, emoji:'📞', file:'Nabilla Benattia in South Beach.JPG', desc:"« Non mais allô quoi ! T'es une fille, t'as pas de shampoing ?! »" },
+  { id:'lena', name:'Léna Situations', rarity:'rare', cat:'Streaming', year:2020, emoji:'💛', file:'Léna Situations 2021.png', desc:"L'optimisme incarné et la hype mode du web FR. Son hôtel Mahfouf part en minutes." },
+  { id:'harold', name:'Hide the Pain Harold', rarity:'rare', cat:'Mème', year:2011, emoji:'🙂', file:'Arató András.jpg', desc:"Ce sourire qui cache une douleur intérieure insondable." },
+  { id:'hanouna', name:'Cyril Hanouna', rarity:'rare', cat:'TV', year:2010, emoji:'📺', file:"Cyril Hanouna lors d'un enregistrement d'une émission de radio.jpg", desc:"« Baballe ! » Le roi de la TV trash et de l'access prime time." },
+  { id:'astier', name:'Alexandre Astier', rarity:'rare', cat:'Culture FR', year:2005, emoji:'🏰', file:'FIBD2023AlexandreAstier.jpg', desc:"Le père de Kaamelott. « C'est pas faux », « Au trot ! »… le Roi Arthur FR." },
+  { id:'kevadams', name:'Kev Adams', rarity:'rare', cat:'Humour', year:2011, emoji:'😄', file:'Kev Adams 2024.jpg', desc:"Le gamin de Soda devenu star du stand-up à 20 ans." },
+  { id:'dubosc', name:'Franck Dubosc', rarity:'rare', cat:'Humour', year:1998, emoji:'🕶️', file:'Franck Dubosc à la guitare.jpg', desc:"« Patrick Chirac », Camping… le beauf le plus attachant du cinéma FR." },
+  { id:'misterv', name:'Mister V', rarity:'rare', cat:'Streaming', year:2012, emoji:'🎧', file:'Mister V 2020 (cropped).jpg', desc:"Du rap parodique aux vrais hits. Le couteau suisse du web FR." },
+  { id:'cyprien', name:'Cyprien', rarity:'rare', cat:'Streaming', year:2013, emoji:'📹', file:'Cyprien en 2022.jpg', desc:"Le pionnier du YouTube FR. Des millions d'ados ont grandi avec ses vidéos." },
+  { id:'gadelmaleh', name:'Gad Elmaleh', rarity:'rare', cat:'Humour', year:2000, emoji:'🎙️', file:'Gad Elmaleh Cannes 2019.jpg', desc:"« Le blond », « Chouchou »… le roi du one-man-show à la française." },
+  { id:'bruel', name:'Patrick Bruel', rarity:'rare', cat:'Musique', year:1989, emoji:'🎸', file:'Patrick Bruel.jpg', desc:"La Bruelmania des 90's. « Place des grands hommes », la casquette iconique." },
+  { id:'riner', name:'Teddy Riner', rarity:'rare', cat:'Sport', year:2012, emoji:'🥋', file:'Teddy Riner, judoka.jpg', desc:"La montagne du judo. Des années sans perdre, décuple champion du monde." },
+  { id:'aot', name:"L'Attaque des Titans", rarity:'rare', cat:'Anime', year:2013, emoji:'⚔️', desc:"Les murs, les titans, et des rebondissements qui te retournent le cerveau." },
+  { id:'zelda', name:'The Legend of Zelda', rarity:'rare', cat:'Gaming', year:1986, emoji:'🗡️', desc:"« It's dangerous to go alone! Take this. » Et non, Link n'est pas Zelda." },
+  { id:'skibidi', name:'Skibidi Toilet', rarity:'rare', cat:'Brainrot', year:2023, emoji:'🚽', desc:"La vidéo qui a liquéfié le cerveau de tous les petits frères. Des milliards de vues." },
+
+  // COMMUNES
+  { id:'rizz', name:'Le Rizz', rarity:'commun', cat:'Brainrot', year:2023, emoji:'😏', desc:"Le charisme qui fait craquer en un regard. W rizz only. Mot de l'année 2023." },
+  { id:'amongus', name:'Among Us (sus)', rarity:'commun', cat:'Gaming', year:2020, emoji:'🔴', desc:"« Il était pas en salle réacteur lui… » Vote. Éjecté." },
+  { id:'pepe', name:'Pepe the Frog', rarity:'commun', cat:'Mème', year:2008, emoji:'🐸', desc:"Feels good man. La grenouille la plus déclinée du web." },
+  { id:'wojak', name:'Wojak', rarity:'commun', cat:'Mème', year:2010, emoji:'😔', desc:"Le mec triste qui nous représente tous un lundi matin." },
+  { id:'wesh', name:'Wesh alors', rarity:'commun', cat:'Culture FR', year:2000, emoji:'👋', desc:"Le salut universel de la cour de récré française." },
+  { id:'cpf', name:'« C\'est pas faux »', rarity:'commun', cat:'Culture FR', year:2005, emoji:'🤔', desc:"La réponse de Perceval quand il n'a rien compris mais veut pas l'avouer." },
+  { id:'quoicoubeh', name:'Quoicoubeh', rarity:'commun', cat:'Brainrot', year:2023, emoji:'🙃', desc:"« Feur. » « Quoicoubeh. » Le piège verbal des cours de récré 2023." },
+  { id:'rene', name:'René la Taupe', rarity:'commun', cat:'Culture FR', year:2010, emoji:'🐭', desc:"« Mignon mignon… » La taupe qui a squatté le top des ventes." },
+  { id:'omartuer', name:'« Omar m\'a tuer »', rarity:'commun', cat:'Culture FR', year:1991, emoji:'🩸', desc:"La faute d'orthographe la plus célèbre de France. Une affaire, un mème." },
+  { id:'travaux', name:'« C\'est pour les travaux ? »', rarity:'commun', cat:'Culture FR', year:2025, emoji:'👮', desc:"Le RAID enfonce la porte, mamie en veste rouge demande : « C'est pour les travaux ? »" },
+  { id:'ohio', name:'Only in Ohio', rarity:'commun', cat:'Brainrot', year:2022, emoji:'🌽', desc:"Là où tout ce qui est bizarre se produit, soi-disant. « Bro thinks he's in Ohio. »" },
+  { id:'sigma', name:'Sigma Male', rarity:'commun', cat:'Brainrot', year:2022, emoji:'🐺', desc:"Le loup solitaire qui se lève à 4h et boit de l'eau glacée. « Who's that sigma? »" },
+  { id:'troll', name:'Trollface', rarity:'commun', cat:'Mème', year:2008, emoji:'😈', desc:"Problem? Le visage du troll internet par excellence." },
+  { id:'stonks', name:'Stonks', rarity:'commun', cat:'Mème', year:2017, emoji:'📈', desc:"La flèche monte. On ne sait pas pourquoi. Profit." },
+  { id:'nyan', name:'Nyan Cat', rarity:'commun', cat:'Mème', year:2011, emoji:'🌈', desc:"Un chat Pop-Tart qui laisse un arc-en-ciel. Nyan nyan nyan." },
+  { id:'baguette', name:'La Baguette', rarity:'commun', cat:'Bouffe', year:2000, emoji:'🥖', desc:"Le cliché français assumé à 100%. Sous le bras, évidemment. Patrimoine UNESCO." },
+  { id:'kebab', name:'Le Kebab', rarity:'commun', cat:'Bouffe', year:2005, emoji:'🌯', desc:"Sauce blanche ? Harissa ? Les deux. Le repas d'après-soirée officiel." },
+  { id:'tacos', name:'Le French Tacos', rarity:'commun', cat:'Bouffe', year:2015, emoji:'🌮', desc:"Taille M, sauce algérienne, viande hachée. N'a de mexicain que le nom." },
+  { id:'raclette', name:'La Raclette', rarity:'commun', cat:'Bouffe', year:2000, emoji:'🧀', desc:"Le seul sport d'hiver où tu transpires à table." },
+  { id:'nutella', name:'Nutella', rarity:'commun', cat:'Bouffe', year:2010, emoji:'🍫', desc:"La pâte à tartiner qui déclenche des émeutes en promo." },
+];
+
+const PACKS = [
+  { id:'free', name:'Booster gratuit', emo:'🎁', cost:0, count:3, cats:null,
+    odds:{ commun:.56, rare:.29, epique:.11, legendaire:.035, mythique:.005 } },
+  { id:'fr', name:'Pack Mèmes FR', emo:'🇫🇷', cost:120, count:3, desc:"Rap FR, culture, foot, bouffe & mèmes cultes.",
+    cats:['Rap FR','Culture FR','Sport','Humour','Cinéma','Musique','TV','Mème','Bouffe'],
+    odds:{ commun:.54, rare:.30, epique:.11, legendaire:.04, mythique:.01 }, grad:'from-blue-600/30 to-red-600/30' },
+  { id:'ag', name:'Pack Anime & Gaming', emo:'🎮', cost:140, count:3, desc:"Animés, streameurs, jeux & brainrot.",
+    cats:['Anime','Gaming','Streaming','Brainrot','Mème'],
+    odds:{ commun:.52, rare:.30, epique:.13, legendaire:.04, mythique:.01 }, grad:'from-fuchsia-600/30 to-cyan-500/30' },
+  { id:'premium', name:'Pack Premium Holo', emo:'🌈', cost:350, count:5, cats:null, desc:"5 cartes, Rare minimum garanti, taux dorés.",
+    odds:{ commun:0, rare:.30, epique:.42, legendaire:.22, mythique:.06 }, grad:'from-yellow-500/30 to-pink-600/30' },
+];
+const packById = Object.fromEntries(PACKS.map(p=>[p.id,p]));
+
+/* ======================= ÉTAT ======================= */
+const SAVE='memedex_v4', REGEN_MS=600000, FREE_CAP=10, DAILY=10;
+const byId=Object.fromEntries(CARDS.map(c=>[c.id,c]));
+const numOf=Object.fromEntries(CARDS.map((c,i)=>[c.id,i+1]));
+const TOTAL=CARDS.length;
+const $=s=>document.querySelector(s);
+const today=()=>new Date().toISOString().slice(0,10);
+const FP='https://commons.wikimedia.org/wiki/Special:FilePath/';
+const imgURL=c=> c.img ? c.img : (c.file? FP+encodeURIComponent(c.file)+'?width=520' : null);
+
+let state=load();
+function load(){ const base={coins:500,owned:{},shiny:{},fav:{},freePacks:DAILY,lastRegen:Date.now(),lastDay:today()};
+  try{ const r=JSON.parse(localStorage.getItem(SAVE)||'null'); if(r&&typeof r==='object') return Object.assign(base,r,{owned:r.owned||{},shiny:r.shiny||{},fav:r.fav||{}}); }catch{} return base; }
+function save(){ try{ localStorage.setItem(SAVE,JSON.stringify(state)); }catch{} }
+
+/* ======================= RENDU CARTE ======================= */
+function stars(r){ return '★'.repeat(RAR[r].stars); }
+function cardInner(c,shiny){
+  const r=RAR[c.rarity], url=imgURL(c);
+  const art=`${url?`<img class="fc-img" src="${url}" alt="${c.name}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<div class="fc-fallback"><span style="font-size:52px">${c.emoji}</span></div>`;
+  const body=`
+    <div class="fc-c">
+      <div class="fc-rar">${r.label} <span class="stars">${stars(c.rarity)}</span></div>
+      <div class="fc-title" style="font-size:15px">${c.name}</div>
+      <div class="fc-spacer"></div>
+      <div class="fc-meta">N° ${String(numOf[c.id]).padStart(3,'0')}/${String(TOTAL).padStart(3,'0')} · Apparu en ${c.year}</div>
+      <div class="fc-desc">${c.desc}</div>
+      <div class="fc-foot"><span>Mèmes FR · Série 1</span><span>MèmeDex</span></div>
+    </div>`;
+  if(c.rarity==='mythique') return `<div class="fc ${r.cls} ${shiny?'shiny':''}"><div class="fc-inner">${art}</div>${body}</div>`;
+  return `<div class="fc ${r.cls} ${shiny?'shiny':''}">${art}${body}</div>`;
+}
+// version "mini" collection
+function miniCard(c){
+  const owned=(state.owned[c.id]||0)>0, count=state.owned[c.id]||0;
+  if(!owned) return `<button class="tap locked" disabled>${cardInner(c,false)}</button>`;
+  const badge=count>1?`<span class="absolute top-1.5 right-1.5 z-30 text-[10px] font-extrabold bg-black/70 border border-line rounded-md px-1.5 py-0.5">×${count}</span>`:'';
+  return `<button data-card="${c.id}" class="tap relative">${cardInner(c,!!state.shiny[c.id])}${badge}</button>`;
+}
+
+function renderCoins(a){ const e=$('#coins'); e.textContent=state.coins.toLocaleString('fr-FR'); if(a){ e.animate([{transform:'scale(1)'},{transform:'scale(1.25)',color:'#fde047'},{transform:'scale(1)'}],{duration:450}); } }
+
+function renderPacks(){
+  $('#packs').innerHTML=PACKS.filter(p=>p.id!=='free').map(p=>`
+    <div class="rounded-2xl border border-line bg-gradient-to-br ${p.grad} p-[1px]">
+      <div class="rounded-2xl bg-panel/90 h-full p-4 flex flex-col">
+        <div class="text-4xl mb-2">${p.emo}</div>
+        <div class="font-extrabold leading-tight">${p.name}</div>
+        <p class="text-xs text-muted mt-1 flex-1">${p.desc}</p>
+        <div class="text-[11px] text-muted mt-2">${p.count} cartes</div>
+        <button data-pack="${p.id}" class="buy btn-grad mt-3 rounded-xl py-2.5 font-bold tap">Ouvrir · ${p.cost} 🪙</button>
+      </div>
+    </div>`).join('');
+}
+let activeFilter='all';
+function renderFilters(){
+  const items=[['all','Toutes'],...Object.entries(RAR).map(([k,v])=>[k,`${v.label}`])];
+  $('#filters').innerHTML=items.map(([k,l])=>`<button data-filter="${k}" class="filter text-xs font-bold px-3 py-1.5 rounded-full border tap ${activeFilter===k?'btn-grad border-transparent text-white':'border-line bg-panel text-muted'}">${l}</button>`).join('');
+}
+function renderGrid(){
+  const list=CARDS.filter(c=>activeFilter==='all'||c.rarity===activeFilter);
+  $('#grid').innerHTML=list.map(miniCard).join('');
+  const uniq=CARDS.filter(c=>(state.owned[c.id]||0)>0).length, pct=Math.round(uniq/TOTAL*100);
+  $('#compNum').textContent=uniq; $('#compTot').textContent=TOTAL; $('#compPct').textContent=pct; $('#compBar').style.width=pct+'%';
+}
+function renderLadder(){
+  $('#rarityLadder').innerHTML=Object.entries(RAR).map(([k,v])=>{
+    const w={commun:92,rare:40,epique:16,legendaire:7,mythique:3}[k];
+    return `<div class="flex items-center gap-3">
+      <span class="text-xs font-extrabold px-2.5 py-1 rounded-lg w-24 text-center" style="background:${v.color}22;color:${v.color};border:1px solid ${v.color}66">${v.label}</span>
+      <div class="flex-1 h-2.5 rounded-full bg-panel2 overflow-hidden"><div style="width:${w}%;height:100%;background:${v.color}"></div></div>
+      <span class="text-sm font-bold w-14 text-right">${v.rate}</span></div>`;
+  }).join('') + `<div class="flex items-center gap-3 pt-1 border-t border-line/60">
+      <span class="text-xs font-extrabold px-2.5 py-1 rounded-lg w-24 text-center" style="background:#fde04722;color:#fde047;border:1px solid #fde04766">Shiny ✨</span>
+      <div class="flex-1 h-2.5 rounded-full bg-panel2 overflow-hidden"><div style="width:4%;height:100%;background:#fde047"></div></div>
+      <span class="text-sm font-bold w-14 text-right">2 %</span></div>`;
+}
+
+/* ======================= OUVERTURE (carrousel) ======================= */
+function rollRarity(o){ const r=Math.random(); let a=0; for(const k of ['mythique','legendaire','epique','rare','commun']){ a+=o[k]||0; if(r<a) return k; } return 'commun'; }
+function draw(pack){ const pool=pack.cats?CARDS.filter(c=>pack.cats.includes(c.cat)):CARDS; let rr=rollRarity(pack.odds); let cs=pool.filter(c=>c.rarity===rr); if(!cs.length) cs=pool.filter(c=>(pack.odds[c.rarity]||0)>0); if(!cs.length) cs=pool; return cs[Math.floor(Math.random()*cs.length)]; }
+
+let op={ draws:[], i:0, seen:0 };
+function openPack(id){
+  const pack=packById[id]; if(!pack) return;
+  if(pack.id==='free'){ if(state.freePacks<=0){ toast('Aucun booster — reviens dans quelques minutes ⏳'); return; } state.freePacks--; }
+  else { if(state.coins<pack.cost){ toast('Pas assez de pièces 🪙'); switchTab('packs'); return; } state.coins-=pack.cost; renderCoins(true); }
+  const draws=Array.from({length:pack.count},()=>{ const c=draw(pack); const isNew=!(state.owned[c.id]>0); const shiny=Math.random()<SHINY_RATE; return {c,isNew,shiny}; });
+  draws.forEach(d=>{ state.owned[d.c.id]=(state.owned[d.c.id]||0)+1; if(d.shiny) state.shiny[d.c.id]=true; });
+  save(); refreshFree(); renderGrid();
+  op={ draws, i:0 };
+  $('#opener').classList.remove('hidden');
+  $('#opDots').innerHTML=draws.map((_,i)=>`<span class="dot h-2 w-2 rounded-full bg-line" data-i="${i}"></span>`).join('');
+  showCard(0,true);
+}
+function showCard(i,first){
+  op.i=i; const d=op.draws[i]; const r=RAR[d.c.rarity];
+  const stage=$('#openStage');
+  stage.innerHTML=`<div class="relative pop">
+      ${d.isNew?`<span class="absolute -top-2 -left-2 z-30 text-[11px] font-extrabold bg-yellow-400 text-black rounded-md px-2 py-0.5 rotate-[-6deg] shadow">NOUVEAU</span>`:''}
+      <button id="favBtn" class="absolute -top-2 -right-2 z-30 h-8 w-8 rounded-full bg-black/70 border border-line grid place-items-center tap">${state.fav[d.c.id]?'⭐':'☆'}</button>
+      ${cardInner(d.c,d.shiny)}
+    </div>`;
+  // rayons + flash pour rare+
+  const rare = ['epique','legendaire','mythique'].includes(d.c.rarity);
+  $('#raysWrap').style.opacity = rare? '0.5':'0';
+  if(first || true){ if(d.c.rarity==='legendaire'||d.c.rarity==='mythique'||d.shiny){ confetti(d.c.rarity==='mythique'?48:28); flash(d.shiny?'#fde047':r.color); } }
+  // progress
+  $('#openProg').textContent=`${i+1}/${op.draws.length}`;
+  const left=op.draws.length-1-i;
+  $('#openCounter').textContent = left>0? `Encore ${left} carte${left>1?'s':''} →` : 'Dernière carte !';
+  $('#openMain').textContent = i>=op.draws.length-1 ? 'Tout récupérer' : 'Suivant';
+  [...document.querySelectorAll('#opDots .dot')].forEach((dt,di)=>dt.style.background = di===i?'#ec4899':(di<i?'#8b5cf6':'#262636'));
+  $('#favBtn').onclick=()=>{ state.fav[d.c.id]=!state.fav[d.c.id]; save(); showCard(i); };
+}
+function opNext(){ if(op.i>=op.draws.length-1){ $('#opener').classList.add('hidden'); renderGrid(); return; } showCard(op.i+1); }
+function opPrev(){ if(op.i>0) showCard(op.i-1); }
+
+function convertDupes(){ let g=0,n=0; for(const c of CARDS){ const q=state.owned[c.id]||0; if(q>1){ g+=(q-1)*RAR[c.rarity].value; n+=q-1; state.owned[c.id]=1; } }
+  if(!n){ toast('Aucun doublon'); return; } state.coins+=g; save(); renderCoins(true); renderGrid(); toast(`+${g} 🪙 · ${n} doublon${n>1?'s':''} ♻️`); }
+
+/* ======================= TIMERS BOOSTERS ======================= */
+function refreshFree(){
+  const now=Date.now();
+  if(state.lastDay!==today()){ state.lastDay=today(); state.freePacks=DAILY; state.lastRegen=now; save(); }
+  if(state.freePacks<FREE_CAP){ while(now-state.lastRegen>=REGEN_MS&&state.freePacks<FREE_CAP){ state.freePacks++; state.lastRegen+=REGEN_MS; } if(state.freePacks>=FREE_CAP) state.lastRegen=now; save(); }
+  else state.lastRegen=now;
+  const n=state.freePacks; $('#freeCount').textContent=n; $('#freeCount2').textContent=n;
+  let t; if(n>=FREE_CAP) t='plein ✅'; else { const s=Math.ceil((REGEN_MS-((now-state.lastRegen)%REGEN_MS))/1000); t=`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
+  $('#freeTimer').textContent=t; $('#freeTimer2').textContent=t;
+  const b=$('#openFree'); b.disabled=n<=0; b.classList.toggle('opacity-60',n<=0); b.textContent=n>0?`Ouvrir (${n})`:'Plus tard';
+}
+
+/* ======================= EFFETS ======================= */
+function confetti(n){ const c=['#ec4899','#8b5cf6','#f5a524','#22d3ee','#34d399','#fde047']; for(let i=0;i<n;i++){ const d=document.createElement('div'); d.className='confetti'; d.style.left=Math.random()*100+'vw'; d.style.background=c[i%c.length]; d.style.animationDuration=(1.5+Math.random()*1.3)+'s'; document.body.appendChild(d); setTimeout(()=>d.remove(),3000); } }
+function flash(col){ const f=document.createElement('div'); f.style.cssText=`position:fixed;inset:0;z-index:60;pointer-events:none;background:radial-gradient(circle at 50% 45%,${col}66,transparent 60%);opacity:1;transition:opacity .6s`; document.body.appendChild(f); requestAnimationFrame(()=>f.style.opacity='0'); setTimeout(()=>f.remove(),620); try{navigator.vibrate&&navigator.vibrate(30);}catch{} }
+let tT; function toast(m){ let t=$('#toast'); if(!t){ t=document.createElement('div'); t.id='toast'; t.className='fixed left-1/2 -translate-x-1/2 bottom-20 z-[95] rounded-xl bg-panel2 border border-line px-4 py-2.5 text-sm font-semibold shadow-xl'; t.style.transition='all .25s'; document.body.appendChild(t);} t.textContent=m; t.style.opacity='1'; clearTimeout(tT); tT=setTimeout(()=>t.style.opacity='0',2200); }
+
+/* ======================= NAV ======================= */
+function switchTab(tab){
+  $('#tab-packs').classList.toggle('hidden',tab!=='packs');
+  $('#tab-deck').classList.toggle('hidden',tab!=='deck');
+  $('#tab-info').classList.toggle('hidden',tab!=='info');
+  document.querySelectorAll('.tabbtn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  if(tab==='deck') renderGrid();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+document.addEventListener('click',e=>{
+  const nav=e.target.closest('.tabbtn'); if(nav) return switchTab(nav.dataset.tab);
+  const buy=e.target.closest('.buy'); if(buy) return openPack(buy.dataset.pack);
+  const f=e.target.closest('.filter'); if(f){ activeFilter=f.dataset.filter; renderFilters(); renderGrid(); return; }
+  const card=e.target.closest('[data-card]'); if(card) return openModal(card.dataset.card);
+});
+$('#openFree').onclick=()=>openPack('free');
+$('#convertBtn').onclick=convertDupes;
+$('#openMain').onclick=opNext; $('#opNext').onclick=opNext; $('#opPrev').onclick=opPrev;
+// swipe
+let sx=0; const st=$('#openStage');
+$('#opener').addEventListener('touchstart',e=>sx=e.touches[0].clientX,{passive:true});
+$('#opener').addEventListener('touchend',e=>{ const dx=e.changedTouches[0].clientX-sx; if(dx<-45) opNext(); else if(dx>45) opPrev(); });
+
+function openModal(id){ const c=byId[id]; if(!c) return; $('#modalCard').innerHTML=cardInner(c,!!state.shiny[id]); $('#modal').classList.remove('hidden'); }
+$('#closeModal').onclick=()=>$('#modal').classList.add('hidden');
+$('#modal').addEventListener('click',e=>{ if(e.target.id==='modal') $('#modal').classList.add('hidden'); });
+
+/* ======================= INIT ======================= */
+$('#heroTotal').textContent=TOTAL;
+renderCoins(); renderPacks(); renderFilters(); renderGrid(); renderLadder(); switchTab('packs'); refreshFree();
+setInterval(refreshFree,1000);
+</script>
+</body>
+</html>
